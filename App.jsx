@@ -533,32 +533,25 @@ function StatCard({label,value,color}) {
   );
 }
 
-function MergeModal({allNames, onMerge, onCancel, initialSelected=[]}) {
-  const [selected,setSelected]=useState(initialSelected);
-  const [newName,setNewName]=useState("");
-  const toggle=n=>setSelected(s=>s.includes(n)?s.filter(x=>x!==n):[...s,n]);
-  const canMerge=selected.length>=2&&newName.trim();
+function MergeModal({onMerge, onCancel, initialSelected=[]}) {
+  const [newName, setNewName] = useState(initialSelected[0]||"");
+  const canMerge = newName.trim().length > 0;
   const inputStyle={background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,padding:"9px 12px",fontSize:16,outline:"none",width:"100%",boxSizing:"border-box"};
   return (
     <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:100}}>
       <div style={{background:C.card,borderRadius:"16px 16px 0 0",padding:20,width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"85vh",overflowY:"auto"}}>
-        <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>デッキ名をまとめる</div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>2つ以上選んで統一名を入力</div>
-        <div style={{marginBottom:12,maxHeight:220,overflowY:"auto"}}>
-          {allNames.map(n=>{
-            const sel=selected.includes(n);
-            return <div key={n} onClick={()=>toggle(n)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:8,marginBottom:5,cursor:"pointer",border:`1px solid ${sel?C.accent:C.border}`,background:sel?C.accent+"11":C.surface}}>
-              <div style={{width:17,height:17,borderRadius:4,border:`2px solid ${sel?C.accent:C.muted}`,background:sel?C.accent:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                {sel&&<span style={{color:"#000",fontSize:11,fontWeight:900}}>✓</span>}
-              </div>
-              <span style={{fontSize:13,color:C.text}}>{n}</span>
-            </div>;
-          })}
+        <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>デッキ名を統合</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>以下のデッキ名を1つにまとめます</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+          {initialSelected.map(n=>(
+            <span key={n} style={{background:C.accent+"22",border:`1px solid ${C.accent}55`,borderRadius:20,padding:"4px 12px",fontSize:13,color:C.accent,fontWeight:700}}>{n}</span>
+          ))}
         </div>
-        {selected.length>=2&&<input placeholder="統一後の名前" value={newName} onChange={e=>setNewName(e.target.value)} style={{...inputStyle,marginBottom:10}} />}
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>統合後の名前</div>
+        <input placeholder="新しいデッキ名を入力" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&canMerge&&onMerge(initialSelected,newName.trim())} autoFocus style={{...inputStyle,marginBottom:14}}/>
         <div style={{display:"flex",gap:8}}>
           <button onClick={onCancel} style={{flex:1,padding:"10px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13}}>キャンセル</button>
-          <button onClick={()=>canMerge&&onMerge(selected,newName.trim())} style={{flex:2,padding:"10px 0",borderRadius:8,border:"none",background:canMerge?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canMerge?"#000":C.muted,fontWeight:800,cursor:canMerge?"pointer":"default",fontSize:13}}>まとめる</button>
+          <button onClick={()=>canMerge&&onMerge(initialSelected,newName.trim())} style={{flex:2,padding:"10px 0",borderRadius:8,border:"none",background:canMerge?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canMerge?"#000":C.muted,fontWeight:800,cursor:canMerge?"pointer":"default",fontSize:13}}>統合する</button>
         </div>
       </div>
     </div>
@@ -1377,6 +1370,20 @@ export default function App() {
         {tab==="stats"&&(
           <div>
             <FilterBar decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} activeFilters={activeFilters} onReset={resetFilters} inputStyle={inputStyle}/>
+            {/* 絞り込み中の内容をサマリー表示 */}
+            {activeFilters>0&&(
+              <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8,marginBottom:4}}>
+                {flt.periodPreset!=="all"&&!flt.dateFrom&&!flt.dateTo&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{{"today":"今日","week":"今週","month":"今月","year":"今年"}[flt.periodPreset]}</span>}
+                {(flt.dateFrom||flt.dateTo)&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{flt.dateFrom||"…"}〜{flt.dateTo||"…"}</span>}
+                {flt.decks.map(id=>{const d=st.decks.find(x=>x.id===id);return d?<span key={id} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{d.name}</span>:null;})}
+                {flt.opponents.map(n=><span key={n} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>vs {n}</span>)}
+                {flt.matchTypes.map(t=><span key={t} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{t}</span>)}
+                {flt.turns.map(t=><span key={t} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{t==="first"?"先攻":t==="second"?"後攻":"未設定"}</span>)}
+                {flt.results.map(r=><span key={r} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{r==="win"?"勝":r==="lose"?"敗":"分"}</span>)}
+                {flt.lucky&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>🍀 運あり</span>}
+                {flt.unlucky&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>💀 不運あり</span>}
+              </div>
+            )}
             {total===0?<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:40,marginBottom:12}}>📊</div><div>データがありません</div></div>:(
               <div style={{marginTop:12}}>
                 <StatSection label="総合戦績" visKey="overall" statVis={statVis}>
@@ -1666,7 +1673,7 @@ ${usedCount}件の戦績の画像表示に影響します。`)) return;
       />}
       {matchDetail&&<MatchDetailModal match={matchDetail} deck={getDeck(matchDetail.deckId)} onClose={()=>setMatchDetail(null)} onEdit={()=>{openEdit(matchDetail);setMatchDetail(null);}} formFields={st.formFields||{}} deckImages={st.deckImages||[]}/>}
       {deckDetail&&<DeckDetailModal deck={deckDetail} deckStats={deckStats.find(d=>d.id===deckDetail.id)} inputStyle={inputStyle} onClose={()=>setDeckDetail(null)} deckImages={st.deckImages||[]} onSave={form=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckDetail.id?{...d,...form}:d)}));setDeckDetail(null);}} onSaveImage={(deckId,imageData)=>{let retId=null;setSt(s=>{const{newImgs,newImgId}=addDeckImage(s.deckImages||[],s.decks,deckId,imageData);retId=newImgId;return{...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newImgId}:d)};});return retId;}} onDeleteImage={(imgId,deckId)=>{setSt(s=>{const newImgs=s.deckImages.filter(i=>i.id!==imgId);const deck=s.decks.find(d=>d.id===deckId);const newCurrentId=deck?.currentImageId===imgId?(newImgs.filter(i=>i.deckId===deckId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]?.id||null):deck?.currentImageId;return{...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newCurrentId}:d)};});}} onSetCurrentImage={(deckId,imgId)=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:imgId}:d)}));}} onDelete={()=>{deleteDeck(deckDetail.id);setDeckDetail(null);}} allDecks={st.decks} />}
-      {showMerge&&<MergeModal allNames={allOpponentNames} onMerge={handleMerge} onCancel={()=>setShowMerge(false)} initialSelected={mergeInitial} />}
+      {showMerge&&<MergeModal onMerge={handleMerge} onCancel={()=>setShowMerge(false)} initialSelected={mergeInitial}/>}
       {showMergeDeck&&<DeckMergeModal decks={st.decks} selectedIds={checkedDecks} deckImages={st.deckImages||[]} onMerge={handleMergeDecks} onCancel={()=>setShowMergeDeck(false)}/>}
     </div>
   );
