@@ -558,129 +558,112 @@ return <text key={i} x={padL+xScale(i)} y={H-4} fontSize="9" fill={C.muted} text
 }
 
 function MemoryGauge({ marker, setMarker, onClose, accent, accentDim }) {
-const [winSize, setWinSize] = useState(()=>({w:window.innerWidth,h:window.innerHeight}));
-const isPortrait = winSize.h > winSize.w;
+const [dims, setDims] = useState({w:window.innerWidth,h:window.innerHeight});
 useEffect(()=>{
-const h=()=>setWinSize({w:window.innerWidth,h:window.innerHeight});
-window.addEventListener(“resize”,h);
-return()=>window.removeEventListener(“resize”,h);
+const update=()=>setDims({w:window.innerWidth,h:window.innerHeight});
+update();
+window.addEventListener(“resize”,update);
+return()=>window.removeEventListener(“resize”,update);
 },[]);
 
-const mineColor = accent;
-const oppColor  = accentDim;
+const isPortrait = dims.h > dims.w;
+const renderW = isPortrait ? dims.h : dims.w;
+const renderH = isPortrait ? dims.w : dims.h;
 
-if (isPortrait) return (
-<div style={{position:“fixed”,inset:0,zIndex:250,background:”#000c”,display:“flex”,alignItems:“center”,justifyContent:“center”,flexDirection:“column”,gap:20}}>
-<button onClick={onClose} style={{position:“absolute”,top:12,left:12,background:“rgba(255,255,255,0.15)”,border:“none”,borderRadius:8,padding:“6px 14px”,color:”#fff”,fontSize:13,fontWeight:700,cursor:“pointer”}}>✕</button>
-<div style={{fontSize:48}}>🔄</div>
-<div style={{fontSize:16,fontWeight:800,color:”#fff”,textAlign:“center”}}>横向きにしてください</div>
-<div style={{fontSize:13,color:“rgba(255,255,255,0.6)”}}>メモリーゲージは横向き専用です</div>
+const wrapStyle = isPortrait ? {
+position:“fixed”,top:0,left:0,width:dims.w,height:dims.h,
+display:“flex”,alignItems:“center”,justifyContent:“center”,
+zIndex:250,overflow:“hidden”,
+} : {
+position:“fixed”,top:0,left:0,width:“100%”,height:“100%”,zIndex:250,
+};
+
+const innerStyle = isPortrait ? {
+width:renderW,height:renderH,
+transform:“rotate(90deg)”,transformOrigin:“center center”,
+flexShrink:0,position:“relative”,overflow:“hidden”,
+} : {
+width:“100%”,height:“100%”,position:“relative”,overflow:“hidden”,
+};
+
+const gap = 8;
+const btnSize = Math.min(88, Math.floor((renderW-120)/12));
+const zeroSize = Math.min(104, btnSize+16);
+const sidePanelW = btnSize*5+gap*4;
+
+const Btn = ({value, side}) => {
+const isSelected = marker===value;
+const bg = isSelected?(side===“p1”?accent:accentDim):“white”;
+const textColor = isSelected?“white”:”#111”;
+const rotate = side===“p2”?“rotate(180deg)”:“none”;
+return (
+<div onClick={()=>setMarker(value)} style={{
+width:btnSize,height:btnSize,borderRadius:“50%”,
+background:bg,color:textColor,
+fontWeight:900,fontSize:Math.max(18,Math.round(btnSize*0.52)),
+cursor:“pointer”,display:“flex”,alignItems:“center”,justifyContent:“center”,
+boxShadow:isSelected?“0 0 0 3px white, 0 0 14px 4px “+(side===“p1”?accent:accentDim):“0 2px 6px rgba(0,0,0,0.25)”,
+border:isSelected?“3px solid white”:“3px solid transparent”,
+flexShrink:0,
+}}>
+<span style={{transform:rotate,display:“block”,lineHeight:1}}>{Math.abs(value)}</span>
 </div>
 );
-
-const btnSize = Math.min(Math.floor((window.innerWidth - 64) / 11), 72);
-const fontSize = btnSize > 55 ? 22 : btnSize > 40 ? 18 : 14;
-const gap = Math.max(4, Math.floor(btnSize * 0.12));
-
-const BtnMine = ({n}) => {
-const active = marker === n;
-return (
-<div onClick={()=>setMarker(n)} style={{
-width:btnSize,height:btnSize,borderRadius:“50%”,flexShrink:0,
-background:active?mineColor:”#fff”,color:active?”#fff”:”#222”,
-display:“flex”,alignItems:“center”,justifyContent:“center”,
-fontSize:fontSize,fontWeight:900,cursor:“pointer”,
-boxShadow:active?“0 0 14px “+mineColor+“cc”:“0 2px 6px #0004”,
-border:active?“3px solid #ffffffaa”:“3px solid transparent”,
-}}>{n}</div>
-);
-};
-const BtnOpp = ({n}) => {
-const active = marker === -n;
-return (
-<div onClick={()=>setMarker(-n)} style={{
-width:btnSize,height:btnSize,borderRadius:“50%”,flexShrink:0,
-background:active?oppColor:”#fff”,color:active?”#fff”:”#222”,
-display:“flex”,alignItems:“center”,justifyContent:“center”,
-fontSize:fontSize,fontWeight:900,cursor:“pointer”,
-boxShadow:active?“0 0 14px “+oppColor+“cc”:“0 2px 6px #0004”,
-border:active?“3px solid #ffffffaa”:“3px solid transparent”,
-}}>{n}</div>
-);
-};
-const zeroSize = Math.round(btnSize * 1.1);
-
-const W = winSize.w;
-const H = winSize.h;
-const g = Math.max(6, Math.floor(W * 0.008)); // 等間隔の固定gap
-const bSize = Math.min(Math.floor((W - g*12) / 11), 70);
-const fs = Math.round(bSize * 0.42);
-const cx = W / 2;
-const cy = H / 2;
-const rowOffset = Math.round(bSize * 1.15);
-const rowW = (bSize + g) * 5;
-// 斜め分割のポリゴン（左上→右下方向に傾ける）
-const skew = Math.round(H * 0.15);
-
-const Btn = ({val, label, col}) => {
-const active = marker===val;
-return (
-<div onClick={()=>setMarker(val)} style={{
-width:bSize, height:bSize, borderRadius:“50%”, flexShrink:0,
-background:active?col:”#fff”, color:active?”#fff”:”#222”,
-display:“flex”, alignItems:“center”, justifyContent:“center”,
-fontSize:fs, fontWeight:900, cursor:“pointer”,
-boxShadow:active?“0 0 12px “+col+“cc”:“0 2px 4px #0003”,
-border:active?“3px solid rgba(255,255,255,0.6)”:“3px solid transparent”,
-}}>{label}</div>
-);
 };
 
 return (
-<div style={{position:“fixed”,inset:0,zIndex:250,touchAction:“none”,overflow:“hidden”}}>
-{/* SVGで斜め背景 */}
-<svg style={{position:“absolute”,inset:0,width:“100%”,height:“100%”,display:“block”}} viewBox={“0 0 “+W+” “+H} preserveAspectRatio=“none”>
-<polygon points={“0,0 “+(cx-skew)+”,0 “+(cx+skew)+”,”+H+” 0,”+H} fill={mineColor}/>
-<polygon points={(cx-skew)+”,0 “+W+”,0 “+W+”,”+H+” “+(cx+skew)+”,”+H} fill={oppColor}/>
-</svg>
+<div style={wrapStyle}>
+<div style={innerStyle}>
+<div style={{position:“absolute”,inset:0,background:accent}}/>
+<div style={{position:“absolute”,inset:0,background:accentDim,clipPath:“polygon(40% 0%, 100% 0%, 100% 100%, 60% 100%)”}}/>
+<div style={{position:“absolute”,inset:0,background:“rgba(255,255,255,0.3)”,clipPath:“polygon(39% 0%, 41% 0%, 61% 100%, 59% 100%)”}}/>
 
 ```
-  {/* ✕ボタン */}
-  <button onClick={onClose} style={{position:"absolute",top:14,left:120,zIndex:10,background:"rgba(0,0,0,0.3)",border:"2px solid rgba(255,255,255,0.35)",borderRadius:10,padding:"6px 14px",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>✕</button>
+    <div style={{position:"absolute",top:16,left:16,display:"flex",alignItems:"center",gap:10,zIndex:10}}>
+      <div style={{background:"white",padding:"6px 18px",fontWeight:900,fontSize:16,letterSpacing:1,color:"#111",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 1</div>
+      <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.25)",border:"2px solid rgba(255,255,255,0.7)",color:"white",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,padding:0}}>✕</button>
+    </div>
 
-  {/* PLAYER1ラベル */}
-  <div style={{position:"absolute",top:14,left:16,zIndex:2,fontSize:12,fontWeight:900,color:"#fff",letterSpacing:2,opacity:0.9,textShadow:"0 1px 4px #0006"}}>PLAYER 1</div>
-  {/* PLAYER2ラベル（右下・反転） */}
-  <div style={{position:"absolute",bottom:14,right:16,zIndex:2,fontSize:12,fontWeight:900,color:"#fff",letterSpacing:2,opacity:0.9,transform:"rotate(180deg)",textShadow:"0 1px 4px #0006"}}>PLAYER 2</div>
+    <div style={{position:"absolute",bottom:16,right:16,transform:"rotate(180deg)",zIndex:10}}>
+      <div style={{background:"white",padding:"6px 18px",fontWeight:900,fontSize:16,letterSpacing:1,color:"#111",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 2</div>
+    </div>
 
-  {/* mine 上段（5,4,3,2,1）：0と同列 → 画像に合わせて中段 */}
-  <div style={{position:"absolute",top:cy-bSize/2,left:cx-bSize/2-g-rowW,display:"flex",gap:g,zIndex:2}}>
-    {[5,4,3,2,1].map(n=><Btn key={n} val={n} label={n} col={mineColor}/>)}
-  </div>
+    <div style={{position:"relative",width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:gap}}>
 
-  {/* mine 下段（6,7,8,9,10） */}
-  <div style={{position:"absolute",top:cy+bSize/2+g,left:cx-bSize/2-g-rowW,display:"flex",gap:g,zIndex:2}}>
-    {[6,7,8,9,10].map(n=><Btn key={n} val={n} label={n} col={mineColor}/>)}
-  </div>
+        <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+          <div style={{width:sidePanelW,flexShrink:0}}/>
+          <div style={{width:zeroSize,flexShrink:0}}/>
+          <div style={{display:"flex",gap:gap}}>
+            {[-10,-9,-8,-7,-6].map(n=><Btn key={n} value={n} side="p2"/>)}
+          </div>
+        </div>
 
-  {/* 0（中央） */}
-  <div onClick={()=>setMarker(0)} style={{
-    position:"absolute",top:cy-bSize/2,left:cx-bSize/2,
-    width:bSize,height:bSize,borderRadius:"50%",zIndex:3,
-    background:marker===0?"#555":"#fff",color:marker===0?"#fff":"#222",
-    display:"flex",alignItems:"center",justifyContent:"center",
-    fontSize:fs,fontWeight:900,cursor:"pointer",
-    boxShadow:marker===0?"0 0 16px #fff8":"0 2px 8px #0006",
-  }}>0</div>
+        <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+          {[5,4,3,2,1].map(n=><Btn key={n} value={n} side="p1"/>)}
+          <div onClick={()=>setMarker(0)} style={{
+            width:zeroSize,height:zeroSize,borderRadius:"50%",
+            background:marker===0?"white":"rgba(255,255,255,0.2)",
+            border:marker===0?"4px solid white":"4px solid rgba(255,255,255,0.45)",
+            color:marker===0?"#111":"white",
+            fontWeight:900,fontSize:24,cursor:"pointer",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            flexShrink:0,
+            boxShadow:marker===0?"0 0 0 4px rgba(255,255,255,0.4), 0 4px 20px rgba(0,0,0,0.4)":"0 4px 12px rgba(0,0,0,0.3)",
+          }}>0</div>
+          {[-1,-2,-3,-4,-5].map(n=><Btn key={n} value={n} side="p2"/>)}
+        </div>
 
-  {/* opp 中段（1〜5）：0の右・反転 */}
-  <div style={{position:"absolute",top:cy-bSize/2,left:cx+bSize/2+g,display:"flex",gap:g,zIndex:2,transform:"rotate(180deg)"}}>
-    {[5,4,3,2,1].map(n=><Btn key={n} val={-n} label={n} col={oppColor}/>)}
-  </div>
+        <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+          <div style={{display:"flex",gap:gap}}>
+            {[6,7,8,9,10].map(n=><Btn key={n} value={n} side="p1"/>)}
+          </div>
+          <div style={{width:zeroSize,flexShrink:0}}/>
+          <div style={{width:sidePanelW,flexShrink:0}}/>
+        </div>
 
-  {/* opp 上段（6〜10）・反転・上 */}
-  <div style={{position:"absolute",top:cy-rowOffset-bSize/2,left:cx+bSize/2+g,display:"flex",gap:g,zIndex:2,transform:"rotate(180deg)"}}>
-    {[6,7,8,9,10].map(n=><Btn key={n} val={-n} label={n} col={oppColor}/>)}
+      </div>
+    </div>
   </div>
 </div>
 ```
