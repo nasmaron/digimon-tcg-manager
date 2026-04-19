@@ -34,7 +34,6 @@ const FORM_FIELDS = [
   { key:"result", label:"勝敗" }, { key:"endTurn", label:"終了ターン" }, { key:"lucky", label:"運・不運" },
   { key:"notes", label:"メモ" }, { key:"deckUrl", label:"デッキURL" }, { key:"deckImage", label:"デッキ画像" }, { key:"image", label:"対戦画像" },
 ];
-const BATTLE_FORM_FIELDS = [...FORM_FIELDS];
 
 function load() {
   try {
@@ -42,19 +41,22 @@ function load() {
     return {
       decks: d.decks || [], matches: d.matches || [], opponentNames: d.opponentNames || [],
       matchTypes: d.matchTypes || [...DEFAULT_MATCH_TYPES], prefs: d.prefs || {}, theme: d.theme || 'blue',
-      formFields: d.formFields || {}, battleFormFields: d.battleFormFields ?? d.formFields ?? {}, opponents: d.opponents || [],
+      formFields: d.formFields || {}, opponents: d.opponents || [],
       deckImages: d.deckImages || [],
+      uiPrefs: d.uiPrefs || {},
     };
-  } catch { return { decks:[], matches:[], opponentNames:[], matchTypes:[...DEFAULT_MATCH_TYPES], prefs:{}, theme:'blue', formFields:{}, battleFormFields:{}, opponents:[], deckImages:[] }; }
+  } catch { return { decks:[], matches:[], opponentNames:[], matchTypes:[...DEFAULT_MATCH_TYPES], prefs:{}, theme:'blue', formFields:{}, opponents:[], deckImages:[], uiPrefs:{} }; }
 }
 function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
-function serializeData(st) {
-  // バックアップ：画像データ本体は除外しIDのみ保持
+function serializeData(st, includeImages=false) {
+  if (includeImages) {
+    return JSON.stringify({...st});
+  }
   const stripped = {
     ...st,
     decks: (st.decks||[]).map(d => { const r={...d}; delete r.image; return r; }),
     matches: (st.matches||[]).map(m => { const r={...m}; delete r.image; delete r.deckImage; return r; }),
-    deckImages: [], // 画像データはバックアップ非対象（容量節約）
+    deckImages: [],
   };
   return JSON.stringify(stripped);
 }
@@ -247,20 +249,20 @@ function MatchTypePicker({ value, onChange, matchTypes, onAdd, onDelete }) {
   );
 }
 
-function Row({ label, children, fieldKey, battleMode, battleFormFields, onToggleBattleField }) {
-  const minimized = fieldKey && (battleFormFields||{})[fieldKey] === false;
-  if (fieldKey && onToggleBattleField) {
+function Row({ label, children, fieldKey, formFields, onToggleField }) {
+  const minimized = fieldKey && (formFields||{})[fieldKey] === false;
+  if (fieldKey && onToggleField) {
     if (minimized) return (
       <div style={{display:"flex",alignItems:"center",paddingBottom:6,borderBottom:`1px solid ${C.border}`,opacity:0.45}}>
         <span style={{fontSize:10,color:C.muted,letterSpacing:0.3,flex:1}}>{label}</span>
-        <span onClick={()=>onToggleBattleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.accent,padding:"2px 8px",lineHeight:1,fontWeight:700}}>＋</span>
+        <span onClick={()=>onToggleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.accent,padding:"2px 8px",lineHeight:1,fontWeight:700}}>＋</span>
       </div>
     );
     return (
       <div style={{paddingBottom:10,borderBottom:`1px solid ${C.border}`}}>
         <div style={{display:"flex",alignItems:"center",marginBottom:6}}>
           <span style={{fontSize:11,color:C.muted,letterSpacing:0.3,flex:1}}>{label}</span>
-          <span onClick={()=>onToggleBattleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.muted,padding:"2px 8px",lineHeight:1}}>－</span>
+          <span onClick={()=>onToggleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.muted,padding:"2px 8px",lineHeight:1}}>－</span>
         </div>
         <div>{children}</div>
       </div>
@@ -274,67 +276,59 @@ function Row({ label, children, fieldKey, battleMode, battleFormFields, onToggle
   );
 }
 
-function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents, matchTypes, onAddMatchType, onDeleteMatchType, isEdit, onDelete, formFields={}, battleFormFields={}, carryOver, onToggleCarryOver, battleMode=false, battleCount=0, onToggleBattleMode, onToggleBattleField, onToggleField }) {
+function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents, matchTypes, onAddMatchType, onDeleteMatchType, isEdit, onDelete, formFields={}, carryOver, onToggleCarryOver, onToggleField, onContinue, seriesCount=0, scrollRef }) {
   const [form, setForm] = useState(initial);
   const set = patch => setForm(f=>({...f,...patch}));
-  const canSave = form.deckId && form.opponent.trim();
-  const activeFields = battleMode ? battleFormFields : formFields;
+  const canSave = form.deckId && form.opponent.trim() && form.result;
   const inputStyle = { background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, padding:"8px 12px", fontSize:16, outline:"none", width:"100%", boxSizing:"border-box" };
 
   return (
-    <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:200,touchAction:"none"}}>
-      <div style={{background:C.bg,color:C.text,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"95vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        <div style={{background:battleMode?"linear-gradient(180deg,#1a0f00 0%,#120a00 100%)":`linear-gradient(180deg,#0d1525 0%,${C.card} 100%)`,borderBottom:`1px solid ${battleMode?"#ff9800":C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderRadius:"16px 16px 0 0",flexShrink:0}}>
-          <button onClick={onCancel} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:14,fontWeight:700,padding:"8px 12px",borderRadius:8,flexShrink:0}}>← 戻る</button>
-          <div style={{textAlign:"center",flex:1,minWidth:0,padding:"0 8px"}}>
-            <div style={{fontWeight:800,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{isEdit?"対戦を編集":"対戦を記録"}</div>
-            {battleMode&&<div style={{fontSize:11,color:"#ff9800",fontWeight:700}}>⚔️ 連戦モード · {battleCount+1}戦目</div>}
-          </div>
-          <button onClick={()=>canSave&&onSave(form)} style={{background:canSave?battleMode?"linear-gradient(135deg,#ff9800,#cc7000)":`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"7px 14px",fontWeight:800,fontSize:13,cursor:canSave?"pointer":"default",flexShrink:0}}>保存</button>
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif",display:"flex",flexDirection:"column",maxWidth:"100vw",overflowX:"clip"}}>
+      <div style={{background:`linear-gradient(180deg,#0d1525 0%,${C.bg} 100%)`,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:6}}>
+        <button onClick={onCancel} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:14,fontWeight:700,padding:"8px 12px",borderRadius:8,flexShrink:0}}>← 戻る</button>
+        <div style={{textAlign:"center",flex:1,minWidth:0}}>
+          <div style={{fontWeight:800,fontSize:15}}>{isEdit?"対戦を編集":"対戦を記録"}</div>
+          {!isEdit&&<div style={{fontSize:11,color:"#ff9800",fontWeight:700}}>連続記録 {seriesCount+1}回目</div>}
         </div>
-        <div style={{flex:1,overflowY:"auto",padding:"12px 16px",maxWidth:600,margin:"0 auto",width:"100%",boxSizing:"border-box"}}>
+        <div style={{display:"flex",gap:5,flexShrink:0}}>
+          <button onClick={()=>canSave&&onSave(form)} style={{background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"7px 10px",fontWeight:800,fontSize:12,cursor:canSave?"pointer":"default"}}>記録</button>
+          {!isEdit&&onContinue&&<button onClick={()=>canSave&&onContinue(form)} style={{background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"7px 8px",fontWeight:800,fontSize:11,cursor:canSave?"pointer":"default",whiteSpace:"nowrap"}}>連続記録</button>}
+        </div>
+      </div>
+      <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"12px 16px",maxWidth:600,margin:"0 auto",width:"100%",boxSizing:"border-box",minWidth:0}}>
         {!isEdit&&(
           <div>
-            {!battleMode&&(
-              <div onClick={()=>{ const next=!carryOver; onToggleCarryOver(next); if(next){setForm(initial);}else{setForm(f=>({...f,deckId:"",opponent:"",matchType:"",opponentPerson:""}));} }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,marginBottom:8,cursor:"pointer",background:C.surface,border:`1px solid ${carryOver?C.accent:C.border}`}}>
+            <div onClick={()=>{ const next=!carryOver; onToggleCarryOver(next); if(next){setForm(initial);}else{setForm(f=>({...f,deckId:"",opponent:"",matchType:"",opponentPerson:""}));} }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,marginBottom:8,cursor:"pointer",background:C.surface,border:`1px solid ${carryOver?C.accent:C.border}`}}>
                 <div style={{width:20,height:20,borderRadius:4,border:`2px solid ${carryOver?C.accent:C.muted}`,background:carryOver?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                   {carryOver&&<span style={{color:"#000",fontSize:13,fontWeight:900}}>✓</span>}
                 </div>
                 <span style={{fontSize:13,color:carryOver?C.text:C.muted}}>前回の入力を引き継ぐ</span>
               </div>
-            )}
-            {!battleMode&&<button onClick={onToggleBattleMode} style={{width:"100%",padding:"10px 0",borderRadius:10,border:"1.5px solid #ff9800",background:"transparent",color:"#ff9800",fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:10}}>⚔️ 連戦モードで記録する</button>}
-            {battleMode&&(
-              <div style={{display:"flex",gap:8,marginBottom:10}}>
-                <div style={{flex:1,padding:"10px 14px",borderRadius:10,background:"#ff980022",border:"1.5px solid #ff9800",fontSize:13,fontWeight:700,color:"#ff9800",textAlign:"center"}}>⚔️ 連戦モード · {battleCount+1}戦目</div>
-                <button onClick={onToggleBattleMode} style={{padding:"10px 14px",borderRadius:10,border:"1px solid #ff6666",background:"transparent",color:"#ff6666",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>連戦終了</button>
-              </div>
-            )}
           </div>
         )}
         <div style={{display:"flex",flexDirection:"column",gap:0}}>
-          <Row label="日付" fieldKey="date" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
-            <input type="date" value={form.date} onChange={e=>set({date:e.target.value})} style={inputStyle} />
+          <Row label="日付" fieldKey="date" formFields={formFields} onToggleField={onToggleField}>
+            <input type="date" value={form.date} onChange={e=>set({date:e.target.value})} style={{...inputStyle,maxWidth:"100%",minWidth:0}} />
           </Row>
-          <Row label="対戦種類" fieldKey="matchType" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="対戦種類" fieldKey="matchType" formFields={formFields} onToggleField={onToggleField}>
             <MatchTypePicker value={form.matchType||""} onChange={v=>set({matchType:v})} matchTypes={matchTypes} onAdd={onAddMatchType} onDelete={onDeleteMatchType} />
           </Row>
-          <Row label="使用デッキ" fieldKey="deck" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="使用デッキ" fieldKey="deck" formFields={formFields} onToggleField={onToggleField}>
             <DeckPicker value={form.deckId} onChange={v=>set({deckId:v})} names={decks} placeholder="デッキ名を入力" useId={true} />
           </Row>
-          <Row label="相手デッキ" fieldKey="opponent" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="相手デッキ" fieldKey="opponent" formFields={formFields} onToggleField={onToggleField}>
             <DeckPicker value={form.opponent} onChange={v=>set({opponent:v})} names={Array.from(new Set([...decks.map(d=>d.name),...opponentNames])).sort().map(n=>({id:n,name:n}))} placeholder="相手のデッキ名" useId={false} />
           </Row>
-          <Row label="対戦相手" fieldKey="opponentPerson" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="対戦相手" fieldKey="opponentPerson" formFields={formFields} onToggleField={onToggleField}>
             <DeckPicker value={form.opponentPerson||""} onChange={v=>set({opponentPerson:v})} names={(opponents||[]).map(n=>({id:n,name:n}))} placeholder="対戦相手の名前" useId={false} />
           </Row>
-          <Row label="先攻後攻" fieldKey="turn" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="先攻後攻" fieldKey="turn" formFields={formFields} onToggleField={onToggleField}>
             <ToggleRow options={[["first","⚡ 先攻",C.first],["second","🌙 後攻",C.second]]} value={form.turn} onChange={v=>set({turn:v})} />
           </Row>
-          <Row label="勝敗" fieldKey="result" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
-            <ToggleRow options={[["win","🏆 勝",C.win],["lose","💀 敗",C.lose],["draw","🤝 分",C.draw]]} value={form.result} onChange={v=>set({result:v||"win"})} />
+          <Row label="勝敗" fieldKey="result" formFields={formFields} onToggleField={onToggleField}>
+            <ToggleRow options={[["win","🏆 勝",C.win],["lose","💀 敗",C.lose],["draw","🤝 分",C.draw]]} value={form.result} onChange={v=>set({result:v})} />
           </Row>
-          <Row label="終了ターン" fieldKey="endTurn" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="終了ターン" fieldKey="endTurn" formFields={formFields} onToggleField={onToggleField}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <button onClick={()=>set({endTurn:form.endTurn!=null?Math.max(1,form.endTurn-1):null})} disabled={!form.endTurn} style={{width:36,height:36,borderRadius:8,border:`1px solid ${C.border}`,background:form.endTurn?C.surface:"transparent",color:form.endTurn?C.text:C.border,fontSize:20,cursor:form.endTurn?"pointer":"default",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
               <span style={{fontSize:22,fontWeight:800,color:form.endTurn?C.text:C.muted,minWidth:32,textAlign:"center"}}>{form.endTurn??"-"}</span>
@@ -343,7 +337,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               {form.endTurn!=null&&<button onClick={()=>set({endTurn:null})} style={{marginLeft:4,background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:"2px 4px"}}>✕</button>}
             </div>
           </Row>
-          <Row label="運" fieldKey="lucky" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="運" fieldKey="lucky" formFields={formFields} onToggleField={onToggleField}>
             <div style={{display:"flex",gap:8}}>
               {[["lucky","🍀 運あり","#22c55e"],["unlucky","💀 不運あり","#f87171"]].map(([k,label,col])=>{
                 const sel=form[k]||false;
@@ -351,13 +345,13 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               })}
             </div>
           </Row>
-          <Row label="メモ" fieldKey="notes" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="メモ" fieldKey="notes" formFields={formFields} onToggleField={onToggleField}>
             <textarea value={form.notes} onChange={e=>set({notes:e.target.value})} placeholder="（任意）" style={{...inputStyle,resize:"vertical",minHeight:52}} />
           </Row>
-          <Row label="デッキURL" fieldKey="deckUrl" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="デッキURL" fieldKey="deckUrl" formFields={formFields} onToggleField={onToggleField}>
             <input placeholder="https://..." value={form.deckUrl||""} onChange={e=>set({deckUrl:e.target.value})} style={inputStyle}/>
           </Row>
-          <Row label="デッキ画像" fieldKey="deckImage" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="デッキ画像" fieldKey="deckImage" formFields={formFields} onToggleField={onToggleField}>
             <label style={{display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,border:`1px dashed ${form.deckImage?C.accent:C.border}`,cursor:"pointer",overflow:"hidden",minHeight:60,background:C.surface,position:"relative"}}>
               {form.deckImage
                 ? <img src={form.deckImage} alt="" style={{width:"100%",maxHeight:160,objectFit:"contain"}}/>
@@ -379,7 +373,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               </div>
             )}
           </Row>
-          <Row label="対戦画像" fieldKey="image" battleMode={battleMode} battleFormFields={activeFields} onToggleBattleField={battleMode?onToggleBattleField:onToggleField}>
+          <Row label="対戦画像" fieldKey="image" formFields={formFields} onToggleField={onToggleField}>
             <label style={{display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,border:`1px dashed ${form.image?C.accent:C.border}`,cursor:"pointer",overflow:"hidden",minHeight:60,background:C.surface}}>
               {form.image
                 ? <img src={form.image} alt="" style={{width:"100%",maxHeight:160,objectFit:"contain"}}/>
@@ -396,11 +390,15 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
           </Row>
         </div>
         {isEdit&&(
-          <div style={{padding:"16px 0 20px"}}>
+          <div style={{padding:"16px 0 8px"}}>
             <button onClick={onDelete} style={{width:"100%",padding:"13px 0",borderRadius:10,border:"none",background:"#ff4444",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer"}}>この記録を削除</button>
           </div>
         )}
-        </div>
+      </div>
+      {/* 下部ボタン */}
+      <div style={{padding:"12px 16px",borderTop:`1px solid ${C.border}`,display:"flex",gap:8,flexShrink:0}}>
+        <button onClick={()=>canSave&&onSave(form)} style={{flex:2,background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:15,cursor:canSave?"pointer":"default"}}>記録</button>
+        {!isEdit&&onContinue&&<button onClick={()=>{if(!canSave)return;onContinue(form);}} style={{flex:1,background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:14,cursor:canSave?"pointer":"default"}}>連続記録</button>}
       </div>
     </div>
   );
@@ -414,9 +412,9 @@ function MatchDetailModal({ match, deck, onClose, onEdit, formFields={}, deckIma
     <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:200,overflow:"hidden",touchAction:"none"}}>
       <div style={{background:C.card,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"92vh",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px",borderBottom:`1px solid ${C.border}`}}>
-          <button onClick={onClose} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:14,fontWeight:700,padding:"8px 12px",borderRadius:8,flexShrink:0}}>← 戻る</button>
-          <span style={{fontWeight:800,fontSize:match.opponent.length>10?13:15,flex:1,minWidth:0,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 8px"}}>vs {match.opponent}</span>
-          <button onClick={onEdit} style={{background:"transparent",border:`1px solid ${C.accent}`,color:C.accent,cursor:"pointer",fontSize:13,padding:"7px 12px",borderRadius:8,fontWeight:700,flexShrink:0}}>編集</button>
+          <button onClick={onClose} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:16,fontWeight:700,padding:"8px 16px",borderRadius:8}}>← 戻る</button>
+          <span style={{fontWeight:800,fontSize:15}}>vs {match.opponent}</span>
+          <button onClick={onEdit} style={{background:"transparent",border:`1px solid ${C.accent}`,color:C.accent,cursor:"pointer",fontSize:13,padding:"7px 14px",borderRadius:8,fontWeight:700}}>編集</button>
         </div>
         <div style={{padding:18,display:"flex",flexDirection:"column",gap:14}}>
           <div style={{background:C.surface,borderRadius:10,padding:14,display:"flex",flexDirection:"column",gap:10}}>
@@ -477,6 +475,217 @@ function StatSection({ label, visKey, statVis, children }) {
     </div>
   );
 }
+
+function WinRateChart({ matches, flt }) {
+  if (!matches||matches.length<2) return null;
+
+  // 粒度を自動判定
+  const dates = matches.map(m=>new Date(m.date||m.createdAt)).filter(d=>!isNaN(d));
+  if (dates.length<2) return null;
+  const minD = new Date(Math.min(...dates));
+  const maxD = new Date(Math.max(...dates));
+  const diffDays = (maxD-minD)/(1000*60*60*24);
+
+  let fmt, groupKey;
+  if (diffDays<=1) {
+    fmt = d=>`${d.getHours()}時`;
+    groupKey = d=>d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate()+"-"+d.getHours();
+  } else if (diffDays<=90) {
+    fmt = d=>`${d.getMonth()+1}/${d.getDate()}`;
+    groupKey = d=>d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate();
+  } else if (diffDays<=365) {
+    const getWeek = d=>{ const s=new Date(d.getFullYear(),0,1); return Math.ceil(((d-s)/86400000+s.getDay()+1)/7); };
+    fmt = d=>`${d.getMonth()+1}/${d.getDate()}週`;
+    groupKey = d=>d.getFullYear()+"-W"+getWeek(d);
+  } else {
+    fmt = d=>`${d.getFullYear()}/${d.getMonth()+1}`;
+    groupKey = d=>d.getFullYear()+"-"+d.getMonth();
+  }
+
+  // グループ化して勝率計算
+  const groups = {};
+  matches.forEach(m=>{
+    const d = new Date(m.date||m.createdAt);
+    if (isNaN(d)) return;
+    const k = groupKey(d);
+    if (!groups[k]) groups[k] = {label:fmt(d),wins:0,total:0,date:d};
+    groups[k].total++;
+    if (m.result==="win") groups[k].wins++;
+  });
+  const pts = Object.values(groups).sort((a,b)=>a.date-b.date).map(g=>({
+    label:g.label, wr:g.total>0?Math.round(g.wins/g.total*100):0, total:g.total
+  }));
+  if (pts.length<2) return null;
+
+  // SVGグラフ
+  const W=320, H=80, padL=28, padR=8, padT=8, padB=20;
+  const gW=W-padL-padR, gH=H-padT-padB;
+  const maxWr=100, minWr=0;
+  const xScale = i=>(i/(pts.length-1))*gW;
+  const yScale = v=>gH-(v-minWr)/(maxWr-minWr)*gH;
+  const pathD = pts.map((p,i)=>`${i===0?"M":"L"}${padL+xScale(i)},${padT+yScale(p.wr)}`).join(" ");
+  // 50%ライン
+  const y50 = padT+yScale(50);
+
+  return (
+    <div style={{marginTop:10}}>
+      <div style={{fontSize:11,color:C.muted,marginBottom:4}}>勝率推移</div>
+      <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:H,display:"block"}}>
+        {/* 50%ライン */}
+        <line x1={padL} y1={y50} x2={W-padR} y2={y50} stroke={C.border} strokeWidth="1" strokeDasharray="3,3"/>
+        <text x={padL-2} y={y50+4} fontSize="9" fill={C.muted} textAnchor="end">50</text>
+        {/* 0%と100%ライン */}
+        <line x1={padL} y1={padT} x2={W-padR} y2={padT} stroke={C.border} strokeWidth="0.5" opacity="0.5"/>
+        <line x1={padL} y1={padT+gH} x2={W-padR} y2={padT+gH} stroke={C.border} strokeWidth="0.5" opacity="0.5"/>
+        <text x={padL-2} y={padT+4} fontSize="9" fill={C.muted} textAnchor="end">100</text>
+        <text x={padL-2} y={padT+gH+4} fontSize="9" fill={C.muted} textAnchor="end">0</text>
+        {/* 折れ線 */}
+        <path d={pathD} fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* ドット */}
+        {pts.map((p,i)=>(
+          <circle key={i} cx={padL+xScale(i)} cy={padT+yScale(p.wr)} r="3"
+            fill={p.wr>=50?C.win:C.lose} stroke={C.card} strokeWidth="1.5"/>
+        ))}
+        {/* X軸ラベル（最初・最後・中間） */}
+        {pts.map((p,i)=>{
+          const show = i===0||i===pts.length-1||(pts.length>4&&i===Math.floor(pts.length/2));
+          if (!show) return null;
+          const anchor = i===0?"start":i===pts.length-1?"end":"middle";
+          return <text key={i} x={padL+xScale(i)} y={H-4} fontSize="9" fill={C.muted} textAnchor={anchor}>{p.label}</text>;
+        })}
+      </svg>
+    </div>
+  );
+}
+
+
+function MemoryGauge({ marker, setMarker, onClose, accent, accentDim }) {
+  const [isPortrait, setIsPortrait] = useState(()=>window.innerHeight>window.innerWidth);
+  useEffect(()=>{
+    const h=()=>setIsPortrait(window.innerHeight>window.innerWidth);
+    window.addEventListener("resize",h);
+    return()=>window.removeEventListener("resize",h);
+  },[]);
+
+  const mineColor = accent;
+  const oppColor  = accentDim;
+
+  if (isPortrait) return (
+    <div style={{position:"fixed",inset:0,zIndex:250,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:20}}>
+      <button onClick={onClose} style={{position:"absolute",top:12,left:12,background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,padding:"6px 14px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>✕</button>
+      <div style={{fontSize:48}}>🔄</div>
+      <div style={{fontSize:16,fontWeight:800,color:"#fff",textAlign:"center"}}>横向きにしてください</div>
+      <div style={{fontSize:13,color:"rgba(255,255,255,0.6)"}}>メモリーゲージは横向き専用です</div>
+    </div>
+  );
+
+  const btnSize = Math.min(Math.floor((window.innerWidth - 64) / 11), 72);
+  const fontSize = btnSize > 55 ? 22 : btnSize > 40 ? 18 : 14;
+  const gap = Math.max(4, Math.floor(btnSize * 0.12));
+
+  const BtnMine = ({n}) => {
+    const active = marker === n;
+    return (
+      <div onClick={()=>setMarker(n)} style={{
+        width:btnSize,height:btnSize,borderRadius:"50%",flexShrink:0,
+        background:active?mineColor:"#fff",color:active?"#fff":"#222",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:fontSize,fontWeight:900,cursor:"pointer",
+        boxShadow:active?"0 0 14px "+mineColor+"cc":"0 2px 6px #0004",
+        border:active?"3px solid #ffffffaa":"3px solid transparent",
+      }}>{n}</div>
+    );
+  };
+  const BtnOpp = ({n}) => {
+    const active = marker === -n;
+    return (
+      <div onClick={()=>setMarker(-n)} style={{
+        width:btnSize,height:btnSize,borderRadius:"50%",flexShrink:0,
+        background:active?oppColor:"#fff",color:active?"#fff":"#222",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:fontSize,fontWeight:900,cursor:"pointer",
+        boxShadow:active?"0 0 14px "+oppColor+"cc":"0 2px 6px #0004",
+        border:active?"3px solid #ffffffaa":"3px solid transparent",
+      }}>{n}</div>
+    );
+  };
+  const zeroSize = Math.round(btnSize * 1.1);
+
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const g = Math.max(6, Math.floor(W * 0.008)); // 等間隔の固定gap
+  const bSize = Math.min(Math.floor((W - g*12) / 11), 70);
+  const fs = Math.round(bSize * 0.42);
+  const cx = W / 2;
+  const cy = H / 2;
+  const rowOffset = Math.round(bSize * 1.15);
+  const rowW = (bSize + g) * 5;
+  // 斜め分割のポリゴン（左上→右下方向に傾ける）
+  const skew = Math.round(H * 0.15);
+
+  const Btn = ({val, label, col}) => {
+    const active = marker===val;
+    return (
+      <div onClick={()=>setMarker(val)} style={{
+        width:bSize, height:bSize, borderRadius:"50%", flexShrink:0,
+        background:active?col:"#fff", color:active?"#fff":"#222",
+        display:"flex", alignItems:"center", justifyContent:"center",
+        fontSize:fs, fontWeight:900, cursor:"pointer",
+        boxShadow:active?"0 0 12px "+col+"cc":"0 2px 4px #0003",
+        border:active?"3px solid rgba(255,255,255,0.6)":"3px solid transparent",
+      }}>{label}</div>
+    );
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:250,touchAction:"none",overflow:"hidden"}}>
+      {/* SVGで斜め背景 */}
+      <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",display:"block"}} viewBox={"0 0 "+W+" "+H} preserveAspectRatio="none">
+        <polygon points={"0,0 "+(cx-skew)+",0 "+(cx+skew)+","+H+" 0,"+H} fill={mineColor}/>
+        <polygon points={(cx-skew)+",0 "+W+",0 "+W+","+H+" "+(cx+skew)+","+H} fill={oppColor}/>
+      </svg>
+
+      {/* ✕ボタン */}
+      <button onClick={onClose} style={{position:"absolute",top:14,left:120,zIndex:10,background:"rgba(0,0,0,0.3)",border:"2px solid rgba(255,255,255,0.35)",borderRadius:10,padding:"6px 14px",color:"#fff",fontSize:13,fontWeight:800,cursor:"pointer"}}>✕</button>
+
+      {/* PLAYER1ラベル */}
+      <div style={{position:"absolute",top:14,left:16,zIndex:2,fontSize:12,fontWeight:900,color:"#fff",letterSpacing:2,opacity:0.9,textShadow:"0 1px 4px #0006"}}>PLAYER 1</div>
+      {/* PLAYER2ラベル（右下・反転） */}
+      <div style={{position:"absolute",bottom:14,right:16,zIndex:2,fontSize:12,fontWeight:900,color:"#fff",letterSpacing:2,opacity:0.9,transform:"rotate(180deg)",textShadow:"0 1px 4px #0006"}}>PLAYER 2</div>
+
+      {/* mine 上段（5,4,3,2,1）：0と同列 → 画像に合わせて中段 */}
+      <div style={{position:"absolute",top:cy-bSize/2,left:cx-bSize/2-g-rowW,display:"flex",gap:g,zIndex:2}}>
+        {[5,4,3,2,1].map(n=><Btn key={n} val={n} label={n} col={mineColor}/>)}
+      </div>
+
+      {/* mine 下段（6,7,8,9,10） */}
+      <div style={{position:"absolute",top:cy+bSize/2+g,left:cx-bSize/2-g-rowW,display:"flex",gap:g,zIndex:2}}>
+        {[6,7,8,9,10].map(n=><Btn key={n} val={n} label={n} col={mineColor}/>)}
+      </div>
+
+      {/* 0（中央） */}
+      <div onClick={()=>setMarker(0)} style={{
+        position:"absolute",top:cy-bSize/2,left:cx-bSize/2,
+        width:bSize,height:bSize,borderRadius:"50%",zIndex:3,
+        background:marker===0?"#555":"#fff",color:marker===0?"#fff":"#222",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:fs,fontWeight:900,cursor:"pointer",
+        boxShadow:marker===0?"0 0 16px #fff8":"0 2px 8px #0006",
+      }}>0</div>
+
+      {/* opp 中段（1〜5）：0の右・反転 */}
+      <div style={{position:"absolute",top:cy-bSize/2,left:cx+bSize/2+g,display:"flex",gap:g,zIndex:2,transform:"rotate(180deg)"}}>
+        {[5,4,3,2,1].map(n=><Btn key={n} val={-n} label={n} col={oppColor}/>)}
+      </div>
+
+      {/* opp 上段（6〜10）・反転・上 */}
+      <div style={{position:"absolute",top:cy-rowOffset-bSize/2,left:cx+bSize/2+g,display:"flex",gap:g,zIndex:2,transform:"rotate(180deg)"}}>
+        {[6,7,8,9,10].map(n=><Btn key={n} val={-n} label={n} col={oppColor}/>)}
+      </div>
+    </div>
+  );
+}
+
 function PieChart({ items }) {
   if (!items||items.length===0) return <div style={{fontSize:13,color:C.muted}}>データがありません</div>;
   const getColor = (item, index, usedColors) => {
@@ -533,25 +742,32 @@ function StatCard({label,value,color}) {
   );
 }
 
-function MergeModal({onMerge, onCancel, initialSelected=[]}) {
-  const [newName, setNewName] = useState(initialSelected[0]||"");
-  const canMerge = newName.trim().length > 0;
+function MergeModal({allNames, onMerge, onCancel, initialSelected=[]}) {
+  const [selected,setSelected]=useState(initialSelected);
+  const [newName,setNewName]=useState("");
+  const toggle=n=>setSelected(s=>s.includes(n)?s.filter(x=>x!==n):[...s,n]);
+  const canMerge=selected.length>=2&&newName.trim();
   const inputStyle={background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,padding:"9px 12px",fontSize:16,outline:"none",width:"100%",boxSizing:"border-box"};
   return (
     <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:100}}>
       <div style={{background:C.card,borderRadius:"16px 16px 0 0",padding:20,width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"85vh",overflowY:"auto"}}>
-        <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>デッキ名を統合</div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>以下のデッキ名を1つにまとめます</div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
-          {initialSelected.map(n=>(
-            <span key={n} style={{background:C.accent+"22",border:`1px solid ${C.accent}55`,borderRadius:20,padding:"4px 12px",fontSize:13,color:C.accent,fontWeight:700}}>{n}</span>
-          ))}
+        <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>デッキ名をまとめる</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>2つ以上選んで統一名を入力</div>
+        <div style={{marginBottom:12,maxHeight:220,overflowY:"auto"}}>
+          {allNames.map(n=>{
+            const sel=selected.includes(n);
+            return <div key={n} onClick={()=>toggle(n)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:8,marginBottom:5,cursor:"pointer",border:`1px solid ${sel?C.accent:C.border}`,background:sel?C.accent+"11":C.surface}}>
+              <div style={{width:17,height:17,borderRadius:4,border:`2px solid ${sel?C.accent:C.muted}`,background:sel?C.accent:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {sel&&<span style={{color:"#000",fontSize:11,fontWeight:900}}>✓</span>}
+              </div>
+              <span style={{fontSize:13,color:C.text}}>{n}</span>
+            </div>;
+          })}
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>統合後の名前</div>
-        <input placeholder="新しいデッキ名を入力" value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&canMerge&&onMerge(initialSelected,newName.trim())} autoFocus style={{...inputStyle,marginBottom:14}}/>
+        {selected.length>=2&&<input placeholder="統一後の名前" value={newName} onChange={e=>setNewName(e.target.value)} style={{...inputStyle,marginBottom:10}} />}
         <div style={{display:"flex",gap:8}}>
           <button onClick={onCancel} style={{flex:1,padding:"10px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13}}>キャンセル</button>
-          <button onClick={()=>canMerge&&onMerge(initialSelected,newName.trim())} style={{flex:2,padding:"10px 0",borderRadius:8,border:"none",background:canMerge?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canMerge?"#000":C.muted,fontWeight:800,cursor:canMerge?"pointer":"default",fontSize:13}}>統合する</button>
+          <button onClick={()=>canMerge&&onMerge(selected,newName.trim())} style={{flex:2,padding:"10px 0",borderRadius:8,border:"none",background:canMerge?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canMerge?"#000":C.muted,fontWeight:800,cursor:canMerge?"pointer":"default",fontSize:13}}>まとめる</button>
         </div>
       </div>
     </div>
@@ -643,9 +859,9 @@ function DeckDetailModal({ deck, deckStats, inputStyle, onClose, onSave, onDelet
     <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:200,overflow:"hidden",touchAction:"none"}}>
       <div style={{background:C.card,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"92vh",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px",borderBottom:`1px solid ${C.border}`}}>
-          <button onClick={onClose} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:14,fontWeight:700,padding:"8px 12px",borderRadius:8,flexShrink:0}}>← 戻る</button>
-          <span style={{fontWeight:800,fontSize:deck.name.length>10?13:15,flex:1,minWidth:0,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",padding:"0 8px"}}>{deck.name}</span>
-          <button onClick={()=>onSave(form)} style={{background:`linear-gradient(135deg,${C.accent},${C.accentDim})`,color:"#000",border:"none",borderRadius:8,padding:"8px 12px",fontWeight:800,fontSize:13,cursor:"pointer",flexShrink:0}}>保存する</button>
+          <button onClick={onClose} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:16,fontWeight:700,padding:"8px 16px",borderRadius:8}}>← 戻る</button>
+          <span style={{fontWeight:800,fontSize:15}}>{deck.name}</span>
+          <button onClick={()=>onSave(form)} style={{background:`linear-gradient(135deg,${C.accent},${C.accentDim})`,color:"#000",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:800,fontSize:14,cursor:"pointer"}}>保存する</button>
         </div>
         {/* 現在の画像を大きく表示 */}
         {(()=>{const curImg=thisImages.find(i=>i.id===currentImageId)||thisImages[0];return curImg?(
@@ -801,8 +1017,8 @@ function findSimilarPairs(names) {
   return pairs;
 }
 
-// ボタン部分のみ（open/closeトグル）
-function FilterBarButtons({ activeFilters, open, setOpen, onReset }) {
+// ボタン部分のみ
+function FilterBarTop({ activeFilters, open, setOpen, onReset }) {
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
       <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,padding:"0 12px",height:36,borderRadius:8,border:`1px solid ${activeFilters>0?C.accent:C.border}`,background:activeFilters>0?C.accent+"18":"transparent",color:activeFilters>0?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:activeFilters>0?700:400,whiteSpace:"nowrap"}}>
@@ -814,8 +1030,8 @@ function FilterBarButtons({ activeFilters, open, setOpen, onReset }) {
   );
 }
 
-// パネル部分（全幅展開）
-function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, setF, inputStyle }) {
+function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, activeFilters, onReset, inputStyle }) {
+  const [open, setOpen] = useState(false);
   const toggleArr = (key, val) => setF({ [key]: flt[key].includes(val) ? flt[key].filter(x=>x!==val) : [...flt[key], val] });
   const [openDeckList, setOpenDeckList] = useState(false);
   const [openOppList, setOpenOppList] = useState(false);
@@ -825,7 +1041,12 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
   const deckLabel = flt.decks.length>0 ? decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name).join("・") : "すべて";
   const oppLabel  = flt.opponents.length>0 ? flt.opponents.join("・") : "すべて";
   return (
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:12,marginBottom:8}}>
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:open?6:0}}>
+        <FilterBarTop activeFilters={activeFilters} open={open} setOpen={setOpen} onReset={onReset}/>
+      </div>
+      {open&&(
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:12}}>
           <div>
             <div style={{fontSize:11,color:C.muted,marginBottom:6}}>期間（プリセット）</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
@@ -906,26 +1127,93 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
               <button onClick={()=>setF({unlucky:!flt.unlucky})} style={chip(flt.unlucky)}>💀 不運あり</button>
             </div>
           </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// 統計タブ用FilterBar（パネル内蔵のシンプル版）
-function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, activeFilters, onReset, inputStyle }) {
-  const [open, setOpen] = useState(false);
+function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, setF, inputStyle }) {
+  const toggleArr = (key, val) => setF({ [key]: flt[key].includes(val) ? flt[key].filter(x=>x!==val) : [...flt[key], val] });
+  const [openDeckList, setOpenDeckList] = useState(false);
+  const [openOppList, setOpenOppList] = useState(false);
+  const chip = (active) => ({ padding:"5px 11px", borderRadius:20, fontSize:12, cursor:"pointer", border:`1.5px solid ${active?C.accent:C.border}`, background:active?C.accent+"22":"transparent", color:active?C.accent:C.muted, fontWeight:active?700:400 });
+  const listRow = (active) => ({ padding:"10px 14px", cursor:"pointer", fontSize:14, color:active?C.accent:C.text, background:active?C.accent+"18":"transparent", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" });
+  const deckLabel = flt.decks.length>0 ? decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name).join("・") : "すべて";
+  const oppLabel = flt.opponents.length>0 ? flt.opponents.join("・") : "すべて";
   return (
-    <div>
-      <div style={{marginBottom:open?8:0}}>
-        <FilterBarButtons activeFilters={activeFilters} open={open} setOpen={setOpen} onReset={onReset}/>
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:12,marginBottom:4}}>
+      <div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>期間（プリセット）</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {[["all","全期間"],["today","今日"],["week","今週"],["month","今月"],["year","今年"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setF({periodPreset:v,dateFrom:"",dateTo:""})} style={chip(flt.periodPreset===v&&!flt.dateFrom&&!flt.dateTo)}>{l}</button>
+          ))}
+        </div>
       </div>
-      {open&&<FilterBarPanel decks={decks} allOpponentNames={allOpponentNames} opponents={opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle}/>}
+      <div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>期間（個別指定）</div>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <input type="date" value={flt.dateFrom} onChange={e=>setF({dateFrom:e.target.value,periodPreset:"all"})} style={{...inputStyle,flex:1,padding:"7px 10px",fontSize:16}}/>
+          <span style={{color:C.muted,fontSize:12,flexShrink:0}}>〜</span>
+          <input type="date" value={flt.dateTo} onChange={e=>setF({dateTo:e.target.value,periodPreset:"all"})} style={{...inputStyle,flex:1,padding:"7px 10px",fontSize:16}}/>
+          {(flt.dateFrom||flt.dateTo)&&<button onClick={()=>setF({dateFrom:"",dateTo:""})} style={{color:C.muted,background:"transparent",border:"none",cursor:"pointer",fontSize:16,flexShrink:0}}>✕</button>}
+        </div>
+      </div>
+      <div style={{position:"relative"}}>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>使用デッキ{flt.decks.length>0&&<span style={{color:C.accent,marginLeft:4}}>（{flt.decks.length}件）</span>}</div>
+        <div onClick={()=>setOpenDeckList(o=>!o)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",borderRadius:8,border:`1px solid ${openDeckList?C.accent:C.border}`,background:C.surface,cursor:"pointer",minHeight:38}}>
+          <span style={{fontSize:13,color:flt.decks.length>0?C.text:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{deckLabel}</span>
+          <span style={{color:C.muted,fontSize:11,marginLeft:6,flexShrink:0}}>{openDeckList?"▲":"▼"}</span>
+        </div>
+        {openDeckList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.accent}`,borderRadius:8,zIndex:300,maxHeight:200,overflowY:"auto",boxShadow:"0 8px 24px #000a",marginTop:3}}>
+          {decks.length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>登録がありません</div>
+          :decks.map(d=>{const sel=flt.decks.includes(d.id);return <div key={d.id} onMouseDown={()=>toggleArr("decks",d.id)} style={listRow(sel)}><span>{d.name}</span>{sel&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>;})}
+        </div>}
+      </div>
+      <div style={{position:"relative"}}>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>相手デッキ{flt.opponents.length>0&&<span style={{color:C.accent,marginLeft:4}}>（{flt.opponents.length}件）</span>}</div>
+        <div onClick={()=>setOpenOppList(o=>!o)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",borderRadius:8,border:`1px solid ${openOppList?C.accent:C.border}`,background:C.surface,cursor:"pointer",minHeight:38}}>
+          <span style={{fontSize:13,color:flt.opponents.length>0?C.text:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{oppLabel}</span>
+          <span style={{color:C.muted,fontSize:11,marginLeft:6,flexShrink:0}}>{openOppList?"▲":"▼"}</span>
+        </div>
+        {openOppList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.accent}`,borderRadius:8,zIndex:300,maxHeight:200,overflowY:"auto",boxShadow:"0 8px 24px #000a",marginTop:3}}>
+          {(allOpponentNames||[]).length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>記録がありません</div>
+          :(allOpponentNames||[]).map(n=>{const sel=flt.opponents.includes(n);return <div key={n} onMouseDown={()=>toggleArr("opponents",n)} style={listRow(sel)}><span>{n}</span>{sel&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>;})}
+        </div>}
+      </div>
+      <div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>対戦種類</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {matchTypes.map(t=><button key={t} onClick={()=>toggleArr("matchTypes",t)} style={chip(flt.matchTypes.includes(t))}>{t}</button>)}
+        </div>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>先攻・後攻</div>
+        <div style={{display:"flex",gap:5}}>
+          {[["first","⚡ 先攻"],["second","🌙 後攻"],["","未設定"]].map(([v,l])=>(<button key={v} onClick={()=>toggleArr("turns",v)} style={chip(flt.turns.includes(v))}>{l}</button>))}
+        </div>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>勝敗</div>
+        <div style={{display:"flex",gap:5}}>
+          {[["win","🏆 勝"],["lose","💀 敗"],["draw","🤝 分"]].map(([v,l])=>(<button key={v} onClick={()=>toggleArr("results",v)} style={chip(flt.results.includes(v))}>{l}</button>))}
+        </div>
+      </div>
+      <div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>フラグ</div>
+        <div style={{display:"flex",gap:5}}>
+          <button onClick={()=>setF({lucky:!flt.lucky})} style={chip(flt.lucky)}>🍀 運あり</button>
+          <button onClick={()=>setF({unlucky:!flt.unlucky})} style={chip(flt.unlucky)}>💀 不運あり</button>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function App() {
   const [st, setSt] = useState(load);
-  const [tab, setTab] = useState("matches");
+  const [tab, setTab] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");return d.uiPrefs?.tab||"matches";}catch{return "matches";} });
   const [screen, setScreen] = useState(null);
   const [showAddDeck, setShowAddDeck] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
@@ -934,34 +1222,42 @@ export default function App() {
   const [flt, setFlt] = useState({ decks:[], opponents:[], opponentPersons:[], matchTypes:[], turns:[], results:[], lucky:false, unlucky:false, periodPreset:"all", dateFrom:"", dateTo:"" });
   const [importResult, setImportResult] = useState(null);
   const [deckDetail, setDeckDetail] = useState(null);
-  const [deckView, setDeckView] = useState('mine');
+  const [deckView, setDeckView] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');return d.uiPrefs?.deckView||'mine';}catch{return 'mine';} });
   const [showSimilar, setShowSimilar] = useState(false);
   const [matchDetail, setMatchDetail] = useState(null);
   const [carryOver, setCarryOver] = useState(true);
-  const [battleMode, setBattleMode] = useState(false);
-  const [battleCount, setBattleCount] = useState(0);
-  const [battleLastForm, setBattleLastForm] = useState(null);
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelected, setBulkSelected] = useState([]);
   const [backupMode, setBackupMode] = useState(null);
   const [backupText, setBackupText] = useState("");
   const [restoreText, setRestoreText] = useState("");
-  const [showDeckStats, setShowDeckStats] = useState(false);
-  const [showNotes, setShowNotes] = useState(true);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [showDeckStats, setShowDeckStats] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");return d.uiPrefs?.showDeckStats||false;}catch{return false;} });
+  const [filterBarOpen, setFilterBarOpen] = useState(false);
+  const [showLife, setShowLife] = useState(false);
+  const [marker, setMarker] = useState(0);
+  const [toast, setToast] = useState(null);
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 1000); };
+  const [showNotes, setShowNotes] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");return d.uiPrefs?.showNotes!==false;}catch{return true;} });
   const [checkedOpps, setCheckedOpps] = useState([]);
   const [checkedDecks, setCheckedDecks] = useState([]);
   const [showAddOpp, setShowAddOpp] = useState(false);
   const [showMergeDeck, setShowMergeDeck] = useState(false);
   const [deckSearch, setDeckSearch] = useState("");
   const [newOppName, setNewOppName] = useState("");
-  const [statVis, setStatVis] = useState({overall:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true});
+  const [statVis, setStatVis] = useState(()=>{ try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.statVis||{};return{overall:p.overall!==false,turns:p.turns!==false,deckBar:p.deckBar!==false,oppBar:p.oppBar!==false,deckPie:p.deckPie!==false,oppPie:p.oppPie!==false};}catch{return{overall:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true};} });
   const [deleteConfirmType, setDeleteConfirmType] = useState(null);
 
   const setF = patch => setFlt(f=>({...f,...patch}));
   const resetFilters = () => setFlt({ decks:[], opponents:[], opponentPersons:[], matchTypes:[], turns:[], results:[], lucky:false, unlucky:false, periodPreset:"all", dateFrom:"", dateTo:"" });
 
   useEffect(()=>{ save(st); }, [st]);
+  useEffect(()=>{
+    try{
+      const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+      d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis};
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
+    }catch{}
+  },[tab,deckView,showDeckStats,showNotes,statVis]);
   useEffect(()=>{
     if(showAddDeck){ document.body.style.overflow="hidden"; }
     else { document.body.style.overflow=""; }
@@ -974,13 +1270,12 @@ export default function App() {
   const matchTypes = st.matchTypes || [...DEFAULT_MATCH_TYPES];
 
   const makeNew = () => {
-    const base = { turn:"", result:"win", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", opponentPerson:"", date:new Date().toISOString().slice(0,10) };
-    if (battleMode && battleLastForm) return { ...base, deckId:battleLastForm.deckId, opponent:battleLastForm.opponent, matchType:battleLastForm.matchType, opponentPerson:battleLastForm.opponentPerson };
+    const base = { turn:"", result:"", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", opponentPerson:"", date:new Date().toISOString().slice(0,10) };
     return { ...base, deckId:carryOver?(st.prefs.lastDeckId||st.decks[0]?.id||""):(st.decks[0]?.id||""), opponent:carryOver?(st.prefs.lastOpponent||""):"", matchType:carryOver?(st.prefs.lastMatchType||""):"" };
   };
   const makeNewBattle = (lastForm) => ({ deckId:lastForm.deckId, opponent:lastForm.opponent, matchType:lastForm.matchType, opponentPerson:lastForm.opponentPerson, turn:"", result:"win", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", date:new Date().toISOString().slice(0,10) });
 
-  const openAdd = () => setScreen({ mode:"add", form:makeNew() });
+  const openAdd = (continueFrom=null, sc=0) => { const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,opponent:continueFrom.opponent,matchType:continueFrom.matchType,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
   const openEdit = match => {
     const deck = st.decks.find(d => d.id === match.deckId);
     setScreen({ mode:"edit", form:{
@@ -1037,11 +1332,7 @@ export default function App() {
         return { ...s, decks, deckImages, matches, opponentNames, prefs };
       }
     });
-    if (battleMode && screen.mode==="add") {
-      setBattleCount(n=>n+1); setBattleLastForm(form);
-      setScreen({mode:"add", form:makeNewBattle(form)}); return;
-    }
-    setScreen(null); setMatchDetail(null);
+    showToast("記録しました"); setScreen(null); setMatchDetail(null); 
   };
 
   const addMatchType = t => setSt(s=>({...s, matchTypes:[...(s.matchTypes||DEFAULT_MATCH_TYPES), t]}));
@@ -1103,7 +1394,35 @@ export default function App() {
     return score(b.id)-score(a.id);
   });
 
-
+  const entryScrollRef = useRef(null);
+  useEffect(()=>{
+    if(screen) {
+      setTimeout(()=>{
+        if(entryScrollRef.current) entryScrollRef.current.scrollTop = 0;
+      }, 0);
+    }
+  }, [screen]);
+  if (screen) return (
+    <div>
+      <MatchEntry initial={screen.form} onSave={saveMatch} onCancel={()=>{setScreen(null);setMatchDetail(null);}}
+        decks={sortedDecksForEntry} opponentNames={allOpponentNames} opponents={st.opponents||[]}
+        matchTypes={matchTypes} onAddMatchType={addMatchType} onDeleteMatchType={deleteMatchType}
+        isEdit={screen.mode==="edit"}
+        onDelete={screen.mode==="edit"?()=>{deleteMatch(screen.form._id);setScreen(null);setMatchDetail(null);}:undefined}
+        formFields={st.formFields||{}}
+        carryOver={carryOver} onToggleCarryOver={next=>setCarryOver(next)}
+        onToggleField={key=>setSt(s=>{const ff=s.formFields||{};const cur=ff[key]!==false;return{...s,formFields:{...ff,[key]:!cur}};})}
+        onContinue={form=>{const next=(screen.seriesCount||0)+1;saveMatch(form);showToast("記録しました");openAdd(form,next);}}
+        seriesCount={screen.seriesCount||0}
+        scrollRef={entryScrollRef}
+      />
+      {toast&&(
+        <div style={{position:"fixed",top:16,right:16,zIndex:9999,background:C.accent,color:"#000",borderRadius:10,padding:"8px 16px",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px #000a",pointerEvents:"none"}}>
+          ✓ {toast}
+        </div>
+      )}
+    </div>
+  );
 
   const getDeck = id => st.decks.find(d=>d.id===id);
   const applyFilters = matches => {
@@ -1159,16 +1478,20 @@ export default function App() {
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif"}}>
       <div style={{background:"linear-gradient(180deg,#0d1525 0%,#0a0e1a 100%)",borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
         <div style={{fontSize:22}}>🌐</div>
-        <div>
+        <div style={{flex:1}}>
           <div style={{fontWeight:900,fontSize:17,letterSpacing:1,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>DIGIMON TCG</div>
           <div style={{fontSize:10,color:C.muted,letterSpacing:2}}>BATTLE TRACKER</div>
         </div>
+        <button onClick={()=>setShowLife(v=>!v)} style={{background:showLife?C.accent+"33":"transparent",border:`1px solid ${showLife?C.accent:C.border}`,borderRadius:10,padding:"7px 12px",color:showLife?C.accent:C.muted,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+          メモリーゲージ
+        </button>
       </div>
       <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.card}}>
         {[["matches","対戦記録"],["decks","デッキ管理"],["stats","統計"],["settings","設定"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"13px 0",border:"none",background:"transparent",color:tab===k?C.accent:C.muted,borderBottom:tab===k?`2px solid ${C.accent}`:"2px solid transparent",fontWeight:tab===k?800:400,fontSize:13,cursor:"pointer"}}>{l}</button>
         ))}
       </div>
+
 
       <div style={{padding:14,maxWidth:600,margin:"0 auto"}}>
 
@@ -1177,33 +1500,27 @@ export default function App() {
           <div>
             {/* 追加ボタン */}
             <div style={{marginBottom:8}}>
-              {battleMode?(
-                <div style={{display:"flex",gap:8,marginBottom:6}}>
-                  <button onClick={bulkMode?null:openAdd} style={{flex:1,background:bulkMode?"#1a2030":`linear-gradient(135deg,#ff9800,#cc7000)`,color:bulkMode?C.muted:"#000",border:"none",borderRadius:8,padding:"12px 0",fontWeight:800,fontSize:15,cursor:bulkMode?"default":"pointer",opacity:bulkMode?0.5:1}}>記録を追加（{battleCount+1}戦目）</button>
-                  <button onClick={()=>{setBattleMode(false);setBattleCount(0);setBattleLastForm(null);}} style={{padding:"12px 14px",borderRadius:8,border:"1px solid #ff6666",background:"transparent",color:"#ff6666",fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>連戦終了</button>
-                </div>
-              ):(
-                <button onClick={bulkMode?null:openAdd} style={{width:"100%",background:bulkMode?"#1a2030":`linear-gradient(135deg,${C.accent},${C.accentDim})`,color:bulkMode?C.muted:"#000",border:"none",borderRadius:8,padding:"12px 0",fontWeight:800,fontSize:15,cursor:bulkMode?"default":"pointer",opacity:bulkMode?0.5:1}}>記録を追加</button>
-              )}
+              <button onClick={bulkMode?null:()=>openAdd()} style={{width:"100%",background:bulkMode?"#1a2030":`linear-gradient(135deg,${C.accent},${C.accentDim})`,color:bulkMode?C.muted:"#000",border:"none",borderRadius:8,padding:"12px 0",fontWeight:800,fontSize:15,cursor:bulkMode?"default":"pointer",opacity:bulkMode?0.5:1}}>記録を追加</button>
             </div>
 
-            {/* ツールバー：ボタン行 */}
-            <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
-              <FilterBarButtons activeFilters={activeFilters} open={filterOpen} setOpen={setFilterOpen} onReset={resetFilters}/>
-              {bulkMode?(
-                <>
-                  <button onClick={cancelBulkMode} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>キャンセル</button>
-                  <button onClick={executeBulkDelete} disabled={bulkSelected.length===0} style={{height:36,padding:"0 10px",borderRadius:8,border:"none",background:bulkSelected.length>0?"#ff4444":"#333",color:bulkSelected.length>0?"#fff":"#666",fontWeight:700,cursor:bulkSelected.length>0?"pointer":"default",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>削除({bulkSelected.length})</button>
-                </>
-              ):(
-                <>
-                  <button onClick={()=>setShowNotes(n=>!n)} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${showNotes?C.accent:C.border}`,background:showNotes?C.accent+"22":"transparent",color:showNotes?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:showNotes?700:400,flexShrink:0}}>メモ</button>
-                  <button onClick={()=>{setBulkMode(true);setBulkSelected([]);}} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>一括削除</button>
-                </>
-              )}
+            {/* ツールバー：ボタン行とパネルを分離 */}
+            <div style={{marginBottom:8}}>
+              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:4}}>
+                <FilterBarTop activeFilters={activeFilters} open={filterBarOpen} setOpen={setFilterBarOpen} onReset={resetFilters}/>
+                {bulkMode?(
+                  <>
+                    <button onClick={cancelBulkMode} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>キャンセル</button>
+                    <button onClick={executeBulkDelete} disabled={bulkSelected.length===0} style={{height:36,padding:"0 10px",borderRadius:8,border:"none",background:bulkSelected.length>0?"#ff4444":"#333",color:bulkSelected.length>0?"#fff":"#666",fontWeight:700,cursor:bulkSelected.length>0?"pointer":"default",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>削除({bulkSelected.length})</button>
+                  </>
+                ):(
+                  <>
+                    <button onClick={()=>setShowNotes(n=>!n)} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${showNotes?C.accent:C.border}`,background:showNotes?C.accent+"22":"transparent",color:showNotes?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:showNotes?700:400,flexShrink:0}}>メモ</button>
+                    <button onClick={()=>{setBulkMode(true);setBulkSelected([]);}} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>一括削除</button>
+                  </>
+                )}
+              </div>
+              {filterBarOpen&&<FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle}/>}
             </div>
-            {/* パネル：全幅で展開 */}
-            {filterOpen&&<FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle}/>}
 
             {/* 記録リスト */}
             {sorted.length===0?(
@@ -1370,20 +1687,6 @@ export default function App() {
         {tab==="stats"&&(
           <div>
             <FilterBar decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} activeFilters={activeFilters} onReset={resetFilters} inputStyle={inputStyle}/>
-            {/* 絞り込み中の内容をサマリー表示 */}
-            {activeFilters>0&&(
-              <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8,marginBottom:4}}>
-                {flt.periodPreset!=="all"&&!flt.dateFrom&&!flt.dateTo&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{{"today":"今日","week":"今週","month":"今月","year":"今年"}[flt.periodPreset]}</span>}
-                {(flt.dateFrom||flt.dateTo)&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{flt.dateFrom||"…"}〜{flt.dateTo||"…"}</span>}
-                {flt.decks.map(id=>{const d=st.decks.find(x=>x.id===id);return d?<span key={id} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{d.name}</span>:null;})}
-                {flt.opponents.map(n=><span key={n} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>vs {n}</span>)}
-                {flt.matchTypes.map(t=><span key={t} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{t}</span>)}
-                {flt.turns.map(t=><span key={t} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{t==="first"?"先攻":t==="second"?"後攻":"未設定"}</span>)}
-                {flt.results.map(r=><span key={r} style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>{r==="win"?"勝":r==="lose"?"敗":"分"}</span>)}
-                {flt.lucky&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>🍀 運あり</span>}
-                {flt.unlucky&&<span style={{background:C.accent+"22",border:`1px solid ${C.accent}44`,borderRadius:20,padding:"3px 10px",fontSize:11,color:C.accent}}>💀 不運あり</span>}
-              </div>
-            )}
             {total===0?<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:40,marginBottom:12}}>📊</div><div>データがありません</div></div>:(
               <div style={{marginTop:12}}>
                 <StatSection label="総合戦績" visKey="overall" statVis={statVis}>
@@ -1398,6 +1701,9 @@ export default function App() {
                   <div style={{display:"flex",gap:16,fontSize:12}}>
                     <span style={{color:C.win}}>勝 {wins}</span>{draws>0&&<span style={{color:C.draw}}>分 {draws}</span>}<span style={{color:C.lose}}>敗 {loses}</span>
                   </div>
+                </StatSection>
+                <StatSection label="勝率推移" visKey="winTrend" statVis={statVis}>
+                  <WinRateChart matches={filtered} flt={flt}/>
                 </StatSection>
                 {(fwr!==null||swr!==null)&&(
                   <StatSection label="先攻・後攻別勝率" visKey="turns" statVis={statVis}>
@@ -1465,28 +1771,14 @@ export default function App() {
                 })}
               </div>
             </div>
-            {/* Battle Form Fields */}
-            <div style={{background:C.card,border:`1px solid #ff980055`,borderRadius:12,padding:16,marginBottom:12}}>
-              <div style={{fontWeight:800,fontSize:14,marginBottom:4,color:"#ff9800"}}>⚔️ 連戦モードの表示項目</div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>連戦モード中に表示する項目を設定します</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {BATTLE_FORM_FIELDS.map(f=>{
-                  const on=(st.battleFormFields||{})[f.key]!==false;
-                  return <div key={f.key} onClick={()=>setSt(s=>({...s,battleFormFields:{...(s.battleFormFields||{}),[f.key]:!on}}))} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:10,cursor:"pointer",background:C.surface,border:`1px solid ${on?"#ff9800":C.border}`}}>
-                    <span style={{fontSize:14,color:on?C.text:C.muted}}>{f.label}</span>
-                    <div style={{width:40,height:22,borderRadius:11,background:on?"#ff9800":C.border,position:"relative",transition:"background 0.2s",flexShrink:0}}>
-                      <div style={{position:"absolute",top:3,left:on?20:3,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
-                    </div>
-                  </div>;
-                })}
-              </div>
-            </div>
+
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
               <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>統計画面の表示設定（強力）</div>
               <div style={{fontSize:12,color:"#f87171",marginBottom:12}}>⚠️ チェックを外すと統計画面から完全に非表示になります。設定画面からのみ復活できます。</div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {[
                   ["overall","総合戦績"],
+                  ["winTrend","勝率推移"],
                   ["turns","先攻・後攻別勝率"],
                   ["deckBar","デッキ別成績"],
                   ["deckPie","使用デッキ分布"],
@@ -1554,22 +1846,57 @@ export default function App() {
             {/* Backup / Restore */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
               <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>データのバックアップ・復元</div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:4}}>機種変更などの際に全データを移行できます。</div>
-              <div style={{fontSize:12,color:"#f87171",marginBottom:12}}>⚠️ デッキ画像・対戦画像はバックアップに含まれません。復元後に再登録してください。</div>
-              <div style={{display:"flex",gap:8,marginBottom:backupMode?12:0}}>
-                <button onClick={()=>{setBackupMode(backupMode==="export"?null:"export");setBackupText(serializeData(st));setRestoreText("");}} style={{flex:1,padding:"10px 0",borderRadius:8,border:`1px solid ${backupMode==="export"?C.accent:C.border}`,background:backupMode==="export"?C.accent+"18":"transparent",color:backupMode==="export"?C.accent:C.muted,cursor:"pointer",fontSize:13,fontWeight:700}}>📤 エクスポート</button>
-                <button onClick={()=>{setBackupMode(backupMode==="import"?null:"import");setRestoreText("");setBackupText("");}} style={{flex:1,padding:"10px 0",borderRadius:8,border:`1px solid ${backupMode==="import"?C.accent:C.border}`,background:backupMode==="import"?C.accent+"18":"transparent",color:backupMode==="import"?C.accent:C.muted,cursor:"pointer",fontSize:13,fontWeight:700}}>📥 インポート</button>
+              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>機種変更などの際に全データを移行できます。画像込みでファイル保存できます。</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <button onClick={()=>{
+                  const json=serializeData(st,true);
+                  const blob=new Blob([json],{type:"application/json"});
+                  const url=URL.createObjectURL(blob);
+                  const a=document.createElement("a");
+                  a.href=url;
+                  a.download="digimon_backup_"+new Date().toISOString().slice(0,10)+".json";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }} style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accent+"18",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                  📤 バックアップをダウンロード（画像込み）
+                </button>
+                <label style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13,fontWeight:700,textAlign:"center",display:"block",boxSizing:"border-box"}}>
+                  📥 バックアップから復元
+                  <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
+                    const file=e.target.files[0];
+                    if(!file)return;
+                    const reader=new FileReader();
+                    reader.onload=ev=>{
+                      const d=parseData(ev.target.result);
+                      if(d){setSt(d);alert("復元しました！");}
+                      else alert("ファイルが正しくありません。");
+                    };
+                    reader.readAsText(file);
+                    e.target.value="";
+                  }}/>
+                </label>
               </div>
-              {backupMode==="export"&&<div>
-                <div style={{fontSize:12,color:C.muted,marginBottom:8}}>以下をコピーして新しい端末のインポート欄に貼り付けてください。<span style={{color:"#f87171"}}>※画像データは含まれません</span></div>
-                <textarea readOnly value={backupText} onClick={e=>e.target.select()} style={{width:"100%",height:90,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:11,padding:"8px",boxSizing:"border-box",resize:"none"}}/>
-                <button onClick={()=>navigator.clipboard&&navigator.clipboard.writeText(backupText)} style={{marginTop:8,width:"100%",padding:"10px 0",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accent+"18",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>コピー</button>
-              </div>}
-              {backupMode==="import"&&<div>
-                <div style={{fontSize:12,color:C.muted,marginBottom:8}}>エクスポートしたテキストを貼り付けて復元を押してください</div>
-                <textarea value={restoreText} onChange={e=>setRestoreText(e.target.value)} placeholder="ここに貼り付け..." style={{width:"100%",height:90,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:11,padding:"8px",boxSizing:"border-box",resize:"none"}}/>
-                <button onClick={doRestore} disabled={!restoreText.trim()} style={{marginTop:8,width:"100%",padding:"10px 0",borderRadius:8,border:"none",background:restoreText.trim()?"#00e676":"#333",color:restoreText.trim()?"#000":"#666",cursor:restoreText.trim()?"pointer":"default",fontSize:13,fontWeight:800}}>復元する</button>
-              </div>}
+              {(()=>{
+                const jsonFull = serializeData(st, true);
+                const jsonNoImg = serializeData(st, false);
+                const toKB = s => s.length < 1024*1024 ? Math.round(s.length/1024)+"KB" : (s.length/1024/1024).toFixed(1)+"MB";
+                return (
+                  <div style={{marginTop:10,background:C.surface,borderRadius:8,padding:"10px 12px",fontSize:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{color:C.muted}}>画像込みサイズ</span>
+                      <span style={{color:C.text,fontWeight:700}}>{toKB(jsonFull)}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{color:C.muted}}>画像なしサイズ</span>
+                      <span style={{color:C.text,fontWeight:700}}>{toKB(jsonNoImg)}</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{color:C.muted}}>保存画像枚数</span>
+                      <span style={{color:C.text,fontWeight:700}}>{(st.deckImages||[]).length}枚</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             {/* デッキ画像データ管理 */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
@@ -1658,22 +1985,18 @@ ${usedCount}件の戦績の画像表示に影響します。`)) return;
         </div>
       )}
 
+      {/* Toast */}
+      {toast&&(
+        <div style={{position:"fixed",top:16,right:16,zIndex:9999,background:C.accent,color:"#000",borderRadius:10,padding:"8px 16px",fontSize:13,fontWeight:800,boxShadow:"0 4px 16px #000a",pointerEvents:"none",animation:"fadeIn 0.2s"}}>
+          ✓ {toast}
+        </div>
+      )}
+      {/* Memory Gauge Modal */}
+      {showLife&&<MemoryGauge marker={marker} setMarker={setMarker} onClose={()=>setShowLife(false)} accent={C.accent} accentDim={C.accentDim} bg={C.bg} surface={C.surface} border={C.border} text={C.text} muted={C.muted} card={C.card}/>}
       {/* Modals */}
-      {screen&&<MatchEntry initial={screen.form} onSave={saveMatch} onCancel={()=>{setScreen(null);setMatchDetail(null);}}
-        decks={sortedDecksForEntry} opponentNames={allOpponentNames} opponents={st.opponents||[]}
-        matchTypes={matchTypes} onAddMatchType={addMatchType} onDeleteMatchType={deleteMatchType}
-        isEdit={screen.mode==="edit"}
-        onDelete={screen.mode==="edit"?()=>{deleteMatch(screen.form._id);setScreen(null);setMatchDetail(null);}:undefined}
-        formFields={st.formFields||{}} battleFormFields={st.battleFormFields||{}}
-        carryOver={carryOver} onToggleCarryOver={next=>setCarryOver(next)}
-        battleMode={battleMode} battleCount={battleCount}
-        onToggleBattleMode={()=>{setBattleMode(b=>!b);setBattleCount(0);setBattleLastForm(null);}}
-        onToggleBattleField={key=>setSt(s=>{const bf=s.battleFormFields||{};const cur=bf[key]!==false;return{...s,battleFormFields:{...bf,[key]:!cur}};})}
-        onToggleField={key=>setSt(s=>{const ff=s.formFields||{};const cur=ff[key]!==false;return{...s,formFields:{...ff,[key]:!cur}};})}
-      />}
       {matchDetail&&<MatchDetailModal match={matchDetail} deck={getDeck(matchDetail.deckId)} onClose={()=>setMatchDetail(null)} onEdit={()=>{openEdit(matchDetail);setMatchDetail(null);}} formFields={st.formFields||{}} deckImages={st.deckImages||[]}/>}
       {deckDetail&&<DeckDetailModal deck={deckDetail} deckStats={deckStats.find(d=>d.id===deckDetail.id)} inputStyle={inputStyle} onClose={()=>setDeckDetail(null)} deckImages={st.deckImages||[]} onSave={form=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckDetail.id?{...d,...form}:d)}));setDeckDetail(null);}} onSaveImage={(deckId,imageData)=>{let retId=null;setSt(s=>{const{newImgs,newImgId}=addDeckImage(s.deckImages||[],s.decks,deckId,imageData);retId=newImgId;return{...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newImgId}:d)};});return retId;}} onDeleteImage={(imgId,deckId)=>{setSt(s=>{const newImgs=s.deckImages.filter(i=>i.id!==imgId);const deck=s.decks.find(d=>d.id===deckId);const newCurrentId=deck?.currentImageId===imgId?(newImgs.filter(i=>i.deckId===deckId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]?.id||null):deck?.currentImageId;return{...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newCurrentId}:d)};});}} onSetCurrentImage={(deckId,imgId)=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:imgId}:d)}));}} onDelete={()=>{deleteDeck(deckDetail.id);setDeckDetail(null);}} allDecks={st.decks} />}
-      {showMerge&&<MergeModal onMerge={handleMerge} onCancel={()=>setShowMerge(false)} initialSelected={mergeInitial}/>}
+      {showMerge&&<MergeModal allNames={allOpponentNames} onMerge={handleMerge} onCancel={()=>setShowMerge(false)} initialSelected={mergeInitial} />}
       {showMergeDeck&&<DeckMergeModal decks={st.decks} selectedIds={checkedDecks} deckImages={st.deckImages||[]} onMerge={handleMergeDecks} onCancel={()=>setShowMergeDeck(false)}/>}
     </div>
   );
