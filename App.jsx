@@ -128,7 +128,7 @@ function TurnBadge({turn}) {
   return <span style={{background:col+"22",color:col,border:`1px solid ${col}55`,borderRadius:6,padding:"2px 7px",fontWeight:700,fontSize:11}}>{turn==="first"?"先攻":"後攻"}</span>;
 }
 
-function ToggleRow({ options, value, onChange, size="md" }) {
+function ToggleRow({ options, value, onChange, size="md", noDeselect=false }) {
   const pad = size==="sm" ? "6px 0" : "8px 0";
   const fs  = size==="sm" ? 12 : 13;
   return (
@@ -137,7 +137,7 @@ function ToggleRow({ options, value, onChange, size="md" }) {
         const sel=value===v;
         const bc=col||(sel?C.accent:C.border);
         return (
-          <button key={v} onClick={()=>onChange(sel?"":v)} style={{
+          <button key={v} onClick={()=>onChange(noDeselect?v:(sel?"":v))} style={{
             flex:1, padding:pad, borderRadius:8, border:`2px solid ${sel?bc:C.border}`,
             background:sel?bc+"22":"transparent", color:sel?bc:C.muted,
             fontWeight:sel?700:400, cursor:"pointer", fontSize:fs,
@@ -162,7 +162,7 @@ function DeckPicker({ value, onChange, names, placeholder="デッキ名", useId=
   const selectedName = useId ? (names.find(n=>n.id===value)?.name || "") : (value || "");
   const textSuggestions = text.trim().length > 0 ? names.filter(n=>n.name.toLowerCase().includes(text.toLowerCase())&&n.name!==text) : [];
 
-  const selectItem = item => { onChange(useId ? item.id : item.name); setText(item.name); setOpen(false); setFocused(false); ref.current?.blur(); };
+  const selectItem = item => { onChange(useId ? item.id : item.name, item.name); setText(item.name); setOpen(false); setFocused(false); ref.current?.blur(); };
 
   return (
     <div style={{position:"relative"}}>
@@ -196,7 +196,7 @@ function DeckPicker({ value, onChange, names, placeholder="デッキ名", useId=
         </>
       ) : (
         <div style={{position:"relative"}}>
-          <input ref={ref} value={text} onChange={e=>{setText(e.target.value);onChange(useId?"":e.target.value);setFocused(true);}} onFocus={()=>setFocused(true)} onBlur={()=>setTimeout(()=>setFocused(false),200)} placeholder={placeholder}
+          <input ref={ref} value={text} onChange={e=>{setText(e.target.value);onChange(useId?"":e.target.value, e.target.value);setFocused(true);}} onFocus={()=>setFocused(true)} onBlur={()=>setTimeout(()=>setFocused(false),200)} placeholder={placeholder}
             style={{width:"100%",background:C.bg,border:`1px solid ${focused?C.accent:C.border}`,borderRadius:8,color:C.text,padding:"8px 12px",fontSize:16,outline:"none",boxSizing:"border-box"}} />
           {focused && textSuggestions.length>0&&(
             <div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.accent}`,borderRadius:8,zIndex:300,maxHeight:200,overflowY:"auto",boxShadow:"0 8px 24px #000a",marginTop:3}}>
@@ -279,7 +279,8 @@ function Row({ label, children, fieldKey, formFields, onToggleField }) {
 function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents, matchTypes, onAddMatchType, onDeleteMatchType, isEdit, onDelete, formFields={}, carryOver, onToggleCarryOver, onToggleField, onContinue, seriesCount=0, scrollRef }) {
   const [form, setForm] = useState(initial);
   const set = patch => setForm(f=>({...f,...patch}));
-  const canSave = form.deckId && form.opponent.trim() && form.result;
+  const deckOK = !!(form.deckId || (form.deckName && form.deckName.trim()));
+  const canSave = deckOK && form.opponent.trim() && form.result;
   const inputStyle = { background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, padding:"8px 12px", fontSize:16, outline:"none", width:"100%", boxSizing:"border-box" };
 
   return (
@@ -314,7 +315,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
             <MatchTypePicker value={form.matchType||""} onChange={v=>set({matchType:v})} matchTypes={matchTypes} onAdd={onAddMatchType} onDelete={onDeleteMatchType} />
           </Row>
           <Row label="使用デッキ" fieldKey="deck" formFields={formFields} onToggleField={onToggleField}>
-            <DeckPicker value={form.deckId} onChange={v=>set({deckId:v})} names={decks} placeholder="デッキ名を入力" useId={true} />
+            <DeckPicker value={form.deckId?((decks.find(d=>d.id===form.deckId)?.name)||form.deckName||""):form.deckName||""} onChange={v=>set({deckId:decks.find(d=>d.name===v)?.id||"",deckName:v})} names={decks} placeholder="デッキ名を入力" useId={false} />
           </Row>
           <Row label="相手デッキ" fieldKey="opponent" formFields={formFields} onToggleField={onToggleField}>
             <DeckPicker value={form.opponent} onChange={v=>set({opponent:v})} names={Array.from(new Set([...decks.map(d=>d.name),...opponentNames])).sort().map(n=>({id:n,name:n}))} placeholder="相手のデッキ名" useId={false} />
@@ -326,7 +327,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
             <ToggleRow options={[["first","⚡ 先攻",C.first],["second","🌙 後攻",C.second]]} value={form.turn} onChange={v=>set({turn:v})} />
           </Row>
           <Row label="勝敗" fieldKey="result" formFields={formFields} onToggleField={onToggleField}>
-            <ToggleRow options={[["win","🏆 勝",C.win],["lose","💀 敗",C.lose],["draw","🤝 分",C.draw]]} value={form.result} onChange={v=>set({result:v})} />
+            <ToggleRow options={[["win","🏆 勝",C.win],["lose","💀 敗",C.lose],["draw","🤝 分",C.draw]]} value={form.result} onChange={v=>set({result:v})} noDeselect={true} />
           </Row>
           <Row label="終了ターン" fieldKey="endTurn" formFields={formFields} onToggleField={onToggleField}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -449,7 +450,7 @@ function MatchDetailModal({ match, deck, onClose, onEdit, formFields={}, deckIma
             <div style={{fontSize:11,color:C.muted,marginBottom:6}}>メモ</div>
             <div style={{fontSize:13,color:C.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{match.notes}</div>
           </div>}
-          {show("deckImage")&&(()=>{const img=getMatchImage(match,deckImages,deck);return img?(<div><div style={{fontSize:11,color:C.muted,marginBottom:6}}>デッキ画像</div><img src={img} alt="" style={{width:"100%",borderRadius:10,objectFit:"contain",maxHeight:240,background:C.surface}}/></div>):null;})()}
+          {show("deckImage")&&getMatchImage(match,deckImages,deck)&&<div><div style={{fontSize:11,color:C.muted,marginBottom:6}}>デッキ画像</div><img src={getMatchImage(match,deckImages,deck)} alt="" style={{width:"100%",borderRadius:10,objectFit:"contain",maxHeight:240,background:C.surface}}/></div>}
           {show("image")&&match.image&&(<div><div style={{fontSize:11,color:C.muted,marginBottom:6}}>対戦画像</div><img src={match.image} alt="" style={{width:"100%",borderRadius:10,objectFit:"contain",maxHeight:240,background:C.surface}}/></div>)}
         </div>
       </div>
@@ -559,113 +560,99 @@ function WinRateChart({ matches, flt }) {
 }
 
 
-function MemoryGauge({ marker, setMarker, onClose, accent, accentDim }) {
-  const [dims, setDims] = useState({w:window.innerWidth,h:window.innerHeight});
+function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
+  const [vp,setVp]=useState({w:window.innerWidth,h:window.innerHeight});
   useEffect(()=>{
-    const update=()=>setDims({w:window.innerWidth,h:window.innerHeight});
+    const update=()=>{const vv=window.visualViewport;setVp({w:vv?vv.width:window.innerWidth,h:vv?vv.height:window.innerHeight});};
     update();
     window.addEventListener("resize",update);
-    return()=>window.removeEventListener("resize",update);
+    window.visualViewport?.addEventListener("resize",update);
+    return()=>{window.removeEventListener("resize",update);window.visualViewport?.removeEventListener("resize",update);};
   },[]);
 
-  const isPortrait = dims.h > dims.w;
-  const renderW = isPortrait ? dims.h : dims.w;
-  const renderH = isPortrait ? dims.w : dims.h;
+  const isLandscape=vp.w>vp.h;
 
-  const wrapStyle = isPortrait ? {
-    position:"fixed",top:0,left:0,width:dims.w,height:dims.h,
-    display:"flex",alignItems:"center",justifyContent:"center",
-    zIndex:250,overflow:"hidden",
-  } : {
-    position:"fixed",top:0,left:0,width:"100%",height:"100%",zIndex:250,
-  };
+  if(isLandscape) return (
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,background:"#111",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+      <div style={{fontSize:48}}>📱</div>
+      <div style={{color:"white",fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize:20,textAlign:"center",padding:"0 32px"}}>縦向きでご使用ください</div>
+      <div style={{color:"rgba(255,255,255,0.5)",fontSize:14,textAlign:"center"}}>Please rotate your device to portrait mode</div>
+      <button onClick={onClose} style={{marginTop:8,padding:"8px 20px",borderRadius:8,background:"rgba(255,255,255,0.15)",border:"2px solid rgba(255,255,255,0.4)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>✕ 閉じる</button>
+    </div>
+  );
 
-  const innerStyle = isPortrait ? {
-    width:renderW,height:renderH,
-    transform:"rotate(90deg)",transformOrigin:"center center",
-    flexShrink:0,position:"relative",overflow:"hidden",
-  } : {
-    width:"100%",height:"100%",position:"relative",overflow:"hidden",
-  };
+  const cW=vp.h,cH=vp.w;
+  const padH=24,padV=80,gf=0.15;
+  const btnFromW=(cW-padH)/(10+8*gf+1.1);
+  const btnFromH=(cH-padV)/(2+gf);
+  const btnSize=Math.floor(Math.min(btnFromW,btnFromH));
+  const gap=Math.floor(btnSize*gf);
+  const zeroSize=Math.floor(btnSize*1.1);
+  const fontSize=Math.floor(btnSize*0.44);
+  const zeroFontSize=Math.floor(zeroSize*0.44);
 
-  const gap = 8;
-  const btnSize = Math.min(88, Math.floor((renderW-120)/12));
-  const zeroSize = Math.min(104, btnSize+16);
-  const sidePanelW = btnSize*5+gap*4;
-
-  const Btn = ({value, side}) => {
-    const isSelected = marker===value;
-    const bg = isSelected?(side==="p1"?accent:accentDim):"white";
-    const textColor = isSelected?"white":"#111";
-    const rotate = side==="p2"?"rotate(180deg)":"none";
+  const Btn=({value,side})=>{
+    const isSelected=marker===value;
+    const bg=isSelected?(side==="p1"?accent:accentDim):"white";
+    const textColor=isSelected?"white":"#111";
+    const rot=side==="p2"?"rotate(180deg)":"none";
     return (
       <div onClick={()=>setMarker(value)} style={{
         width:btnSize,height:btnSize,borderRadius:"50%",
         background:bg,color:textColor,
-        fontWeight:900,fontSize:Math.max(18,Math.round(btnSize*0.52)),
+        fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize,
         cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
-        boxShadow:isSelected?"0 0 0 3px white, 0 0 14px 4px "+(side==="p1"?accent:accentDim):"0 2px 6px rgba(0,0,0,0.25)",
+        boxShadow:isSelected?"0 0 0 3px white, 0 0 12px 3px "+(side==="p1"?accent:accentDim):"0 2px 8px rgba(0,0,0,0.2)",
         border:isSelected?"3px solid white":"3px solid transparent",
-        flexShrink:0,
+        flexShrink:0,WebkitTapHighlightColor:"transparent",
       }}>
-        <span style={{transform:rotate,display:"block",lineHeight:1}}>{Math.abs(value)}</span>
+        <span style={{transform:rot,display:"block",lineHeight:1}}>{Math.abs(value)}</span>
       </div>
     );
   };
 
   return (
-    <div style={wrapStyle}>
-      <div style={innerStyle}>
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{width:cW,height:cH,transform:"rotate(90deg)",transformOrigin:"center center",flexShrink:0,position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",inset:0,background:accent}}/>
         <div style={{position:"absolute",inset:0,background:accentDim,clipPath:"polygon(40% 0%, 100% 0%, 100% 100%, 60% 100%)"}}/>
         <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.3)",clipPath:"polygon(39% 0%, 41% 0%, 61% 100%, 59% 100%)"}}/>
-
-        <div style={{position:"absolute",top:16,left:16,display:"flex",alignItems:"center",gap:10,zIndex:10}}>
-          <div style={{background:"white",padding:"6px 18px",fontWeight:900,fontSize:16,letterSpacing:1,color:"#111",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 1</div>
-          <button onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.25)",border:"2px solid rgba(255,255,255,0.7)",color:"white",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,padding:0}}>✕</button>
+        <div style={{position:"absolute",top:12,left:12,display:"flex",alignItems:"center",gap:8,zIndex:10}}>
+          <div style={{background:"white",padding:"5px 12px",fontWeight:900,fontSize:13,letterSpacing:1,color:"#111",fontFamily:"'Arial Black',Arial,sans-serif",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 1</div>
+          <div onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.2)",border:"2px solid rgba(255,255,255,0.7)",color:"white",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,WebkitTapHighlightColor:"transparent"}}>✕</div>
         </div>
-
-        <div style={{position:"absolute",bottom:16,right:16,transform:"rotate(180deg)",zIndex:10}}>
-          <div style={{background:"white",padding:"6px 18px",fontWeight:900,fontSize:16,letterSpacing:1,color:"#111",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 2</div>
+        <div style={{position:"absolute",bottom:12,right:12,zIndex:10,transform:"rotate(180deg)"}}>
+          <div style={{background:"white",padding:"5px 12px",fontWeight:900,fontSize:13,letterSpacing:1,color:"#111",fontFamily:"'Arial Black',Arial,sans-serif",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 2</div>
         </div>
-
-        <div style={{position:"relative",width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:gap}}>
-
-            <div style={{display:"flex",gap:gap,alignItems:"center"}}>
-              <div style={{width:sidePanelW,flexShrink:0}}/>
-              <div style={{width:zeroSize,flexShrink:0}}/>
-              <div style={{display:"flex",gap:gap}}>
-                {[-10,-9,-8,-7,-6].map(n=><Btn key={n} value={n} side="p2"/>)}
-              </div>
-            </div>
-
-            <div style={{display:"flex",gap:gap,alignItems:"center"}}>
-              {[5,4,3,2,1].map(n=><Btn key={n} value={n} side="p1"/>)}
-              <div onClick={()=>setMarker(0)} style={{
-                width:zeroSize,height:zeroSize,borderRadius:"50%",
-                background:marker===0?"white":"rgba(255,255,255,0.2)",
-                border:marker===0?"4px solid white":"4px solid rgba(255,255,255,0.45)",
-                color:marker===0?"#111":"white",
-                fontWeight:900,fontSize:24,cursor:"pointer",
-                display:"flex",alignItems:"center",justifyContent:"center",
-                flexShrink:0,
-                boxShadow:marker===0?"0 0 0 4px rgba(255,255,255,0.4), 0 4px 20px rgba(0,0,0,0.4)":"0 4px 12px rgba(0,0,0,0.3)",
-              }}>0</div>
-              {[-1,-2,-3,-4,-5].map(n=><Btn key={n} value={n} side="p2"/>)}
-            </div>
-
-            <div style={{display:"flex",gap:gap,alignItems:"center"}}>
-              <div style={{display:"flex",gap:gap}}>
-                {[6,7,8,9,10].map(n=><Btn key={n} value={n} side="p1"/>)}
-              </div>
-              <div style={{width:zeroSize,flexShrink:0}}/>
-              <div style={{width:sidePanelW,flexShrink:0}}/>
-            </div>
-
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:gap}}>
+          <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+            <div style={{width:btnSize*5+gap*4+zeroSize+gap,flexShrink:0}}/>
+            {[-10,-9,-8,-7,-6].map(n=><Btn key={n} value={n} side="p2"/>)}
+          </div>
+          <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+            {[5,4,3,2,1].map(n=><Btn key={n} value={n} side="p1"/>)}
+            <div onClick={()=>setMarker(0)} style={{width:zeroSize,height:zeroSize,borderRadius:"50%",background:marker===0?"#888":"white",border:marker===0?"3px solid white":"3px solid transparent",color:marker===0?"white":"#111",fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize:zeroFontSize,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:marker===0?"0 0 0 3px white, 0 0 12px 3px rgba(150,150,150,0.8)":"0 2px 8px rgba(0,0,0,0.2)",WebkitTapHighlightColor:"transparent"}}>0</div>
+            {[-1,-2,-3,-4,-5].map(n=><Btn key={n} value={n} side="p2"/>)}
+          </div>
+          <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+            {[6,7,8,9,10].map(n=><Btn key={n} value={n} side="p1"/>)}
+            <div style={{width:zeroSize+gap+btnSize*5+gap*4,flexShrink:0}}/>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BackupSizeInfo({st, C, serializeData}) {
+  const toKB = s => s.length < 1024*1024 ? Math.round(s.length/1024)+"KB" : (s.length/1024/1024).toFixed(1)+"MB";
+  const jsonFull = serializeData(st, true);
+  const jsonNoImg = serializeData(st, false);
+  return (
+    <div style={{marginTop:10,background:C.surface,borderRadius:8,padding:"10px 12px",fontSize:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>画像込みサイズ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonFull)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>画像なしサイズ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonNoImg)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:C.muted}}>保存画像枚数</span><span style={{color:C.text,fontWeight:700}}>{(st.deckImages||[]).length}枚</span></div>
     </div>
   );
 }
@@ -848,12 +835,7 @@ function DeckDetailModal({ deck, deckStats, inputStyle, onClose, onSave, onDelet
           <button onClick={()=>onSave(form)} style={{background:`linear-gradient(135deg,${C.accent},${C.accentDim})`,color:"#000",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:800,fontSize:14,cursor:"pointer"}}>保存する</button>
         </div>
         {/* 現在の画像を大きく表示 */}
-        {(()=>{const curImg=thisImages.find(i=>i.id===currentImageId)||thisImages[0];return curImg?(
-          <div style={{position:"relative",width:"100%",background:C.surface}}>
-            <img src={curImg.imageData} alt="" style={{width:"100%",maxHeight:220,objectFit:"contain",display:"block"}}/>
-            <div style={{position:"absolute",bottom:8,left:8,background:"#000a",borderRadius:6,padding:"3px 8px",fontSize:11,color:"#fff"}}>現在の画像</div>
-          </div>
-        ):null;})()}
+        {(thisImages.find(i=>i.id===currentImageId)||thisImages[0])&&<div style={{position:"relative",width:"100%",background:C.surface}}><img src={(thisImages.find(i=>i.id===currentImageId)||thisImages[0]).imageData} alt="" style={{width:"100%",maxHeight:220,objectFit:"contain",display:"block"}}/><div style={{position:"absolute",bottom:8,left:8,background:"#000a",borderRadius:6,padding:"3px 8px",fontSize:11,color:"#fff"}}>現在の画像</div></div>}
         <div style={{padding:18,display:"flex",flexDirection:"column",gap:14}}>
           {/* 画像管理 */}
           <div>
@@ -1254,12 +1236,12 @@ export default function App() {
   const matchTypes = st.matchTypes || [...DEFAULT_MATCH_TYPES];
 
   const makeNew = () => {
-    const base = { turn:"", result:"", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", opponentPerson:"", date:new Date().toISOString().slice(0,10) };
+    const base = { turn:"", result:"", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", opponentPerson:"", date:new Date().toISOString().slice(0,10), deckName:"" };
     return { ...base, deckId:carryOver?(st.prefs.lastDeckId||st.decks[0]?.id||""):(st.decks[0]?.id||""), opponent:carryOver?(st.prefs.lastOpponent||""):"", matchType:carryOver?(st.prefs.lastMatchType||""):"" };
   };
   const makeNewBattle = (lastForm) => ({ deckId:lastForm.deckId, opponent:lastForm.opponent, matchType:lastForm.matchType, opponentPerson:lastForm.opponentPerson, turn:"", result:"win", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", date:new Date().toISOString().slice(0,10) });
 
-  const openAdd = (continueFrom=null, sc=0) => { const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,opponent:continueFrom.opponent,matchType:continueFrom.matchType,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
+  const openAdd = (continueFrom=null, sc=0) => { const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,deckName:continueFrom.deckName||"",opponent:continueFrom.opponent,matchType:continueFrom.matchType,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
   const openEdit = match => {
     const deck = st.decks.find(d => d.id === match.deckId);
     setScreen({ mode:"edit", form:{
@@ -1273,10 +1255,7 @@ export default function App() {
       unlucky: match.unlucky || false,
       notes: (match.notes && match.notes !== "null") ? match.notes : "",
       image: match.image || "",
-      deckImage: match.deckImage || (()=>{
-        const di=(st.deckImages||[]).find(i=>i.id===(match.imageId||deck?.currentImageId));
-        return di?.imageData||deck?.image||"";
-      })(),
+      deckImage: match.deckImage || (st.deckImages||[]).find(i=>i.id===(match.imageId||st.decks.find(d=>d.id===match.deckId)?.currentImageId))?.imageData || st.decks.find(d=>d.id===match.deckId)?.image || "",
       deckUrl: match.deckUrl || "",
       opponentPerson: match.opponentPerson || "",
       date: match.date,
@@ -1285,38 +1264,51 @@ export default function App() {
   };
 
   const saveMatch = form => {
-    if (!form.deckId || !form.opponent.trim()) return;
+    const deckName = form.deckName || (form.deckId ? (st.decks?.find(d=>d.id===form.deckId)?.name||"") : "");
+    if ((!form.deckId && !deckName) || !form.opponent.trim()) return;
     setSt(s => {
       let deckImages = [...(s.deckImages || [])];
       let decks = s.decks;
       let imageId = form.imageId || null;
+      let deckId = form.deckId;
 
+      // 直接入力で新規デッキ名が入力された場合、デッキを自動作成
+      const _deckName = form.deckName || "";
+      if (!deckId && _deckName) {
+        const existing = s.decks.find(d => d.name === _deckName);
+        if (existing) {
+          deckId = existing.id;
+        } else {
+          deckId = genId();
+          decks = [...s.decks, {id:deckId, name:_deckName, colors:[], notes:"", url:"", maxImages:10, currentImageId:null, createdAt:new Date().toISOString()}];
+        }
+      }
+
+      // 相手デッキも新規の場合はopponentNamesに追加するだけ（デッキ管理には追加しない）
       // デッキ画像が新たに設定されていれば追加
       if (form.deckImage) {
-        const { newImgs, newImgId } = addDeckImage(deckImages, decks, form.deckId, form.deckImage);
+        const { newImgs, newImgId } = addDeckImage(deckImages, decks, deckId, form.deckImage);
         deckImages = newImgs;
         imageId = newImgId;
-        // この試合の日付が同デッキの最新試合かどうか確認
-        const deckMatches = s.matches.filter(m => m.deckId === form.deckId && m.id !== form._id);
+        const deckMatches = s.matches.filter(m => m.deckId === deckId && m.id !== form._id);
         const isLatest = deckMatches.every(m => m.date <= form.date);
-        // 最新の試合のときだけcurrentImageIdを更新
         if (isLatest) {
-          decks = decks.map(d => d.id===form.deckId ? {...d, currentImageId:newImgId} : d);
+          decks = decks.map(d => d.id===deckId ? {...d, currentImageId:newImgId} : d);
         }
       }
 
       const opponentNames = Array.from(new Set([...(s.opponentNames||[]), form.opponent]));
-      const prefs = {...s.prefs, lastDeckId:form.deckId, lastOpponent:form.opponent, lastMatchType:form.matchType};
+      const prefs = {...s.prefs, lastDeckId:deckId, lastOpponent:form.opponent, lastMatchType:form.matchType};
 
       if (screen.mode==="add") {
-        const match = { id:Date.now().toString(), ...form, imageId, deckImage:undefined, createdAt:new Date().toISOString() };
+        const match = { id:Date.now().toString(), ...form, deckId, imageId, deckImage:undefined, createdAt:new Date().toISOString() };
         return { ...s, decks, deckImages, matches:[...s.matches, match], opponentNames, prefs };
       } else {
-        const matches = s.matches.map(m => m.id===form._id ? {...m, ...form, imageId, deckImage:undefined} : m);
+        const matches = s.matches.map(m => m.id===form._id ? {...m, ...form, deckId, imageId, deckImage:undefined} : m);
         return { ...s, decks, deckImages, matches, opponentNames, prefs };
       }
     });
-    showToast("記録しました"); setScreen(null); setMatchDetail(null); 
+    showToast("記録しました"); setScreen(null); setMatchDetail(null);
   };
 
   const addMatchType = t => setSt(s=>({...s, matchTypes:[...(s.matchTypes||DEFAULT_MATCH_TYPES), t]}));
@@ -1536,7 +1528,7 @@ export default function App() {
 
                       {/* 2行目：デッキ画像・デッキ名・対戦種類・日付 */}
                       <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,marginBottom:m.notes&&showNotes?8:0}}>
-                        {(()=>{const img=getMatchImage(m,st.deckImages||[],deck);return img?<img src={img} alt="" style={{width:32,height:32,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>:null;})()}
+                        {getMatchImage(m,st.deckImages||[],deck)&&<img src={getMatchImage(m,st.deckImages||[],deck)} alt="" style={{width:32,height:32,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>}
                         {deck&&<span style={{display:"flex",alignItems:"center",gap:4,color:hex||C.text,fontWeight:700}}><DeckDot colors={deck.colors} size={10}/>{deck.name}</span>}
                         {m.matchType&&<span style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:4,padding:"1px 6px",color:C.muted,fontSize:11}}>{m.matchType}</span>}
                         <span style={{color:C.muted,fontSize:11,marginLeft:"auto"}}>{m.date}</span>
@@ -1860,27 +1852,7 @@ export default function App() {
                   }}/>
                 </label>
               </div>
-              {(()=>{
-                const jsonFull = serializeData(st, true);
-                const jsonNoImg = serializeData(st, false);
-                const toKB = s => s.length < 1024*1024 ? Math.round(s.length/1024)+"KB" : (s.length/1024/1024).toFixed(1)+"MB";
-                return (
-                  <div style={{marginTop:10,background:C.surface,borderRadius:8,padding:"10px 12px",fontSize:12}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                      <span style={{color:C.muted}}>画像込みサイズ</span>
-                      <span style={{color:C.text,fontWeight:700}}>{toKB(jsonFull)}</span>
-                    </div>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                      <span style={{color:C.muted}}>画像なしサイズ</span>
-                      <span style={{color:C.text,fontWeight:700}}>{toKB(jsonNoImg)}</span>
-                    </div>
-                    <div style={{display:"flex",justifyContent:"space-between"}}>
-                      <span style={{color:C.muted}}>保存画像枚数</span>
-                      <span style={{color:C.text,fontWeight:700}}>{(st.deckImages||[]).length}枚</span>
-                    </div>
-                  </div>
-                );
-              })()}
+              <BackupSizeInfo st={st} C={C} serializeData={serializeData}/>
             </div>
             {/* デッキ画像データ管理 */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
