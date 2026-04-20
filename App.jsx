@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 const THEMES = {
   red: { label:"赤", bg:"#0f0a0a", card:"#1c1010", border:"#3d1a1a", accent:"#ff4d6d", accentDim:"#cc2244", win:"#00e676", lose:"#ff8800", draw:"#ffaa00", first:"#ffd700", second:"#a78bfa", text:"#ffe8e8", muted:"#996666", surface:"#1a0f0f" },
@@ -646,8 +646,8 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
 
 function BackupSizeInfo({st, C, serializeData}) {
   const toKB = s => s.length < 1024*1024 ? Math.round(s.length/1024)+"KB" : (s.length/1024/1024).toFixed(1)+"MB";
-  const jsonFull = serializeData(st, true);
-  const jsonNoImg = serializeData(st, false);
+  const jsonFull = useMemo(()=>serializeData(st, true), [st]);
+  const jsonNoImg = useMemo(()=>serializeData(st, false), [st]);
   return (
     <div style={{marginTop:10,background:C.surface,borderRadius:8,padding:"10px 12px",fontSize:12}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>画像込みサイズ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonFull)}</span></div>
@@ -1426,18 +1426,18 @@ export default function App() {
   };
 
   const activeFilters = flt.decks.length+flt.opponents.length+(flt.opponentPersons||[]).length+flt.matchTypes.length+(flt.periodPreset!=="all"?1:0)+(flt.dateFrom||flt.dateTo?1:0);
-  const filtered = applyFilters(st.matches);
-  const sorted = [...filtered].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const filtered = useMemo(()=>applyFilters(st.matches),[st.matches,flt]);
+  const sorted = useMemo(()=>[...filtered].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)),[filtered]);
   const wins=filtered.filter(m=>m.result==="win").length, loses=filtered.filter(m=>m.result==="lose").length, draws=filtered.filter(m=>m.result==="draw").length, total=filtered.length;
   const wr=total>0?Math.round(wins/total*100):0;
   const fm=filtered.filter(m=>m.turn==="first"), sm=filtered.filter(m=>m.turn==="second");
   const fwr=fm.length>0?Math.round(fm.filter(m=>m.result==="win").length/fm.length*100):null;
   const swr=sm.length>0?Math.round(sm.filter(m=>m.result==="win").length/sm.length*100):null;
-  const deckStats=st.decks.map(deck=>{
+  const deckStats=useMemo(()=>st.decks.map(deck=>{
     const ms=filtered.filter(m=>m.deckId===deck.id);
     const w=ms.filter(m=>m.result==="win").length,l=ms.filter(m=>m.result==="lose").length,dr=ms.filter(m=>m.result==="draw").length,t=ms.length;
     return {...deck,total:t,wins:w,loses:l,draws:dr,winRate:t>0?Math.round(w/t*100):0};
-  });
+  }),[st.decks,filtered]);
   const opponentStats=Array.from(new Set(filtered.map(m=>m.opponent).filter(Boolean))).sort().map(name=>{
     const ms=filtered.filter(m=>m.opponent===name);
     const w=ms.filter(m=>m.result==="win").length,l=ms.filter(m=>m.result==="lose").length,dr=ms.filter(m=>m.result==="draw").length,t=ms.length;
@@ -1528,7 +1528,7 @@ export default function App() {
 
                       {/* 2行目：デッキ画像・デッキ名・対戦種類・日付 */}
                       <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,marginBottom:m.notes&&showNotes?8:0}}>
-                        {getMatchImage(m,st.deckImages||[],deck)&&<img src={getMatchImage(m,st.deckImages||[],deck)} alt="" style={{width:32,height:32,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>}
+                        {(()=>{const _img=getMatchImage(m,st.deckImages||[],deck);return _img&&<img src={_img} alt="" style={{width:32,height:32,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>;})()}
                         {deck&&<span style={{display:"flex",alignItems:"center",gap:4,color:hex||C.text,fontWeight:700}}><DeckDot colors={deck.colors} size={10}/>{deck.name}</span>}
                         {m.matchType&&<span style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:4,padding:"1px 6px",color:C.muted,fontSize:11}}>{m.matchType}</span>}
                         <span style={{color:C.muted,fontSize:11,marginLeft:"auto"}}>{m.date}</span>
