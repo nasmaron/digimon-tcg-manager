@@ -1528,7 +1528,7 @@ export default function App() {
 
                       {/* 2行目：デッキ画像・デッキ名・対戦種類・日付 */}
                       <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,marginBottom:m.notes&&showNotes?8:0}}>
-                        {(()=>{const _img=getMatchImage(m,st.deckImages||[],deck);return _img&&<img src={_img} alt="" style={{width:32,height:32,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>;})()}
+                        {getMatchImage(m,st.deckImages||[],deck)&&<img src={getMatchImage(m,st.deckImages||[],deck)} alt="" style={{width:32,height:32,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>}
                         {deck&&<span style={{display:"flex",alignItems:"center",gap:4,color:hex||C.text,fontWeight:700}}><DeckDot colors={deck.colors} size={10}/>{deck.name}</span>}
                         {m.matchType&&<span style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:4,padding:"1px 6px",color:C.muted,fontSize:11}}>{m.matchType}</span>}
                         <span style={{color:C.muted,fontSize:11,marginLeft:"auto"}}>{m.date}</span>
