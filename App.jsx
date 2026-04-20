@@ -560,86 +560,86 @@ function WinRateChart({ matches, flt }) {
 }
 
 
-function MemoryGauge({ marker, setMarker, onClose, accent, accentDim }) {
-  const [dims, setDims] = useState({w:window.innerWidth,h:window.innerHeight});
+function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
+  const [vp,setVp]=useState({w:window.innerWidth,h:window.innerHeight});
   useEffect(()=>{
-    const update=()=>setDims({w:window.innerWidth,h:window.innerHeight});
+    const update=()=>{const vv=window.visualViewport;setVp({w:vv?vv.width:window.innerWidth,h:vv?vv.height:window.innerHeight});};
     update();
     window.addEventListener("resize",update);
-    return()=>window.removeEventListener("resize",update);
+    window.visualViewport?.addEventListener("resize",update);
+    return()=>{window.removeEventListener("resize",update);window.visualViewport?.removeEventListener("resize",update);};
   },[]);
 
-  const isPortrait = dims.h > dims.w;
-  const gap = 6;
+  const isLandscape=vp.w>vp.h;
 
-  if (isPortrait) {
-    // 縦向き：上半分P1、下半分P2（上下分割）
-    const btnSize = Math.min(56, Math.floor((dims.w - gap*6) / 5.5));
-    const zeroSize = Math.round(btnSize * 1.2);
-    const fs = Math.round(btnSize * 0.42);
+  if(isLandscape) return (
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,background:"#111",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+      <div style={{fontSize:48}}>📱</div>
+      <div style={{color:"white",fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize:20,textAlign:"center",padding:"0 32px"}}>縦向きでご使用ください</div>
+      <div style={{color:"rgba(255,255,255,0.5)",fontSize:14,textAlign:"center"}}>Please rotate your device to portrait mode</div>
+      <button onClick={onClose} style={{marginTop:8,padding:"8px 20px",borderRadius:8,background:"rgba(255,255,255,0.15)",border:"2px solid rgba(255,255,255,0.4)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>✕ 閉じる</button>
+    </div>
+  );
 
-    const BtnV = ({value, side}) => {
-      const isSelected = marker===value;
-      const col = side==="p1" ? accent : accentDim;
-      return (
-        <div onClick={()=>setMarker(value)} style={{
-          width:btnSize,height:btnSize,borderRadius:"50%",flexShrink:0,
-          background:isSelected?col:"white",color:isSelected?"white":"#111",
-          fontWeight:900,fontSize:fs,cursor:"pointer",
-          display:"flex",alignItems:"center",justifyContent:"center",
-          boxShadow:isSelected?"0 0 12px "+col:"0 2px 6px rgba(0,0,0,0.2)",
-          border:isSelected?"3px solid white":"3px solid transparent",
-        }}>
-          <span style={{display:"block",lineHeight:1,transform:side==="p2"?"rotate(180deg)":"none"}}>{Math.abs(value)}</span>
-        </div>
-      );
-    };
+  const cW=vp.h,cH=vp.w;
+  const padH=24,padV=80,gf=0.15;
+  const btnFromW=(cW-padH)/(10+8*gf+1.1);
+  const btnFromH=(cH-padV)/(2+gf);
+  const btnSize=Math.floor(Math.min(btnFromW,btnFromH));
+  const gap=Math.floor(btnSize*gf);
+  const zeroSize=Math.floor(btnSize*1.1);
+  const fontSize=Math.floor(btnSize*0.44);
+  const zeroFontSize=Math.floor(zeroSize*0.44);
 
+  const Btn=({value,side})=>{
+    const isSelected=marker===value;
+    const bg=isSelected?(side==="p1"?accent:accentDim):"white";
+    const textColor=isSelected?"white":"#111";
+    const rot=side==="p2"?"rotate(180deg)":"none";
     return (
-      <div style={{position:"fixed",inset:0,zIndex:250,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-        {/* P1上半分 */}
-        <div style={{flex:1,background:accent,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:gap,padding:"12px 8px",position:"relative"}}>
-          <div style={{position:"absolute",top:12,left:16,background:"white",padding:"4px 14px",fontWeight:900,fontSize:13,color:"#111"}}>PLAYER 1</div>
-          <button onClick={onClose} style={{position:"absolute",top:12,right:12,width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.25)",border:"2px solid rgba(255,255,255,0.7)",color:"white",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>✕</button>
-          <div style={{display:"flex",gap:gap}}>
-            {[5,4,3,2,1].map(n=><BtnV key={n} value={n} side="p1"/>)}
-          </div>
-          <div style={{display:"flex",gap:gap}}>
-            {[10,9,8,7,6].map(n=><BtnV key={n} value={n} side="p1"/>)}
-          </div>
+      <div onClick={()=>setMarker(value)} style={{
+        width:btnSize,height:btnSize,borderRadius:"50%",
+        background:bg,color:textColor,
+        fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize,
+        cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
+        boxShadow:isSelected?"0 0 0 3px white, 0 0 12px 3px "+(side==="p1"?accent:accentDim):"0 2px 8px rgba(0,0,0,0.2)",
+        border:isSelected?"3px solid white":"3px solid transparent",
+        flexShrink:0,WebkitTapHighlightColor:"transparent",
+      }}>
+        <span style={{transform:rot,display:"block",lineHeight:1}}>{Math.abs(value)}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{width:cW,height:cH,transform:"rotate(90deg)",transformOrigin:"center center",flexShrink:0,position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",inset:0,background:accent}}/>
+        <div style={{position:"absolute",inset:0,background:accentDim,clipPath:"polygon(40% 0%, 100% 0%, 100% 100%, 60% 100%)"}}/>
+        <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.3)",clipPath:"polygon(39% 0%, 41% 0%, 61% 100%, 59% 100%)"}}/>
+        <div style={{position:"absolute",top:12,left:12,display:"flex",alignItems:"center",gap:8,zIndex:10}}>
+          <div style={{background:"white",padding:"5px 12px",fontWeight:900,fontSize:13,letterSpacing:1,color:"#111",fontFamily:"'Arial Black',Arial,sans-serif",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 1</div>
+          <div onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.2)",border:"2px solid rgba(255,255,255,0.7)",color:"white",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,WebkitTapHighlightColor:"transparent"}}>✕</div>
         </div>
-        {/* 中央0 */}
-        <div style={{height:zeroSize+16,background:"#222",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-          <div onClick={()=>setMarker(0)} style={{
-            width:zeroSize,height:zeroSize,borderRadius:"50%",
-            background:marker===0?"white":"rgba(255,255,255,0.2)",
-            border:marker===0?"4px solid white":"4px solid rgba(255,255,255,0.4)",
-            color:marker===0?"#111":"white",
-            fontWeight:900,fontSize:Math.round(zeroSize*0.38),cursor:"pointer",
-            display:"flex",alignItems:"center",justifyContent:"center",
-          }}>0</div>
+        <div style={{position:"absolute",bottom:12,right:12,zIndex:10,transform:"rotate(180deg)"}}>
+          <div style={{background:"white",padding:"5px 12px",fontWeight:900,fontSize:13,letterSpacing:1,color:"#111",fontFamily:"'Arial Black',Arial,sans-serif",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 2</div>
         </div>
-        {/* P2下半分・反転 */}
-        <div style={{flex:1,background:accentDim,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:gap,padding:"12px 8px",position:"relative",transform:"rotate(180deg)"}}>
-          <div style={{position:"absolute",top:12,left:16,background:"white",padding:"4px 14px",fontWeight:900,fontSize:13,color:"#111"}}>PLAYER 2</div>
-          <div style={{display:"flex",gap:gap}}>
-            {[5,4,3,2,1].map(n=><BtnV key={n} value={-n} side="p2"/>)}
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:gap}}>
+          <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+            <div style={{width:btnSize*5+gap*4+zeroSize+gap,flexShrink:0}}/>
+            {[-10,-9,-8,-7,-6].map(n=><Btn key={n} value={n} side="p2"/>)}
           </div>
-          <div style={{display:"flex",gap:gap}}>
-            {[10,9,8,7,6].map(n=><BtnV key={n} value={-n} side="p2"/>)}
+          <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+            {[5,4,3,2,1].map(n=><Btn key={n} value={n} side="p1"/>)}
+            <div onClick={()=>setMarker(0)} style={{width:zeroSize,height:zeroSize,borderRadius:"50%",background:marker===0?"#888":"white",border:marker===0?"3px solid white":"3px solid transparent",color:marker===0?"white":"#111",fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize:zeroFontSize,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:marker===0?"0 0 0 3px white, 0 0 12px 3px rgba(150,150,150,0.8)":"0 2px 8px rgba(0,0,0,0.2)",WebkitTapHighlightColor:"transparent"}}>0</div>
+            {[-1,-2,-3,-4,-5].map(n=><Btn key={n} value={n} side="p2"/>)}
+          </div>
+          <div style={{display:"flex",gap:gap,alignItems:"center"}}>
+            {[6,7,8,9,10].map(n=><Btn key={n} value={n} side="p1"/>)}
+            <div style={{width:zeroSize+gap+btnSize*5+gap*4,flexShrink:0}}/>
           </div>
         </div>
       </div>
-    );
-  }
-
-  // 横向き：縦向きにしてくださいメッセージ
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:250,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:20}}>
-      <button onClick={onClose} style={{position:"absolute",top:14,right:16,background:"rgba(255,255,255,0.15)",border:"2px solid rgba(255,255,255,0.4)",borderRadius:10,padding:"6px 16px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>✕ 閉じる</button>
-      <div style={{fontSize:48}}>📱</div>
-      <div style={{fontSize:18,fontWeight:800,color:"#fff"}}>縦向きにしてください</div>
-      <div style={{fontSize:13,color:"rgba(255,255,255,0.6)"}}>メモリーゲージは縦向き専用です</div>
     </div>
   );
 }
