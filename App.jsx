@@ -723,7 +723,8 @@ function MergeModal({allNames, onMerge, onCancel, initialSelected=[]}) {
     <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:100}}>
       <div style={{background:C.card,borderRadius:"16px 16px 0 0",padding:20,width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"85vh",overflowY:"auto"}}>
         <div style={{fontWeight:800,fontSize:15,marginBottom:4}}>デッキ名をまとめる</div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>2つ以上選んで統一名を入力</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:8}}>2つ以上選んで統一名を入力</div>
+        {selected.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:10}}>{selected.map(n=><span key={n} style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}55`,borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:700}}>{n}</span>)}</div>}
         <div style={{marginBottom:12,maxHeight:220,overflowY:"auto"}}>
           {allNames.map(n=>{
             const sel=selected.includes(n);
@@ -1180,6 +1181,7 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
 export default function App() {
   const [st, setSt] = useState(load);
   const [tab, setTab] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");return d.uiPrefs?.tab||"matches";}catch{return "matches";} });
+  const switchTab = t => { setTab(t); setDisplayCount(20); };
   const [screen, setScreen] = useState(null);
   const [showAddDeck, setShowAddDeck] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
@@ -1199,6 +1201,7 @@ export default function App() {
   const [restoreText, setRestoreText] = useState("");
   const [showDeckStats, setShowDeckStats] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");return d.uiPrefs?.showDeckStats||false;}catch{return false;} });
   const [filterBarOpen, setFilterBarOpen] = useState(false);
+  const [displayCount, setDisplayCount] = useState(20);
   const [showLife, setShowLife] = useState(false);
   const [marker, setMarker] = useState(0);
   const [toast, setToast] = useState(null);
@@ -1213,7 +1216,7 @@ export default function App() {
   const [statVis, setStatVis] = useState(()=>{ try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.statVis||{};return{overall:p.overall!==false,turns:p.turns!==false,deckBar:p.deckBar!==false,oppBar:p.oppBar!==false,deckPie:p.deckPie!==false,oppPie:p.oppPie!==false};}catch{return{overall:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true};} });
   const [deleteConfirmType, setDeleteConfirmType] = useState(null);
 
-  const setF = patch => setFlt(f=>({...f,...patch}));
+  const setF = patch => { setFlt(f=>({...f,...patch})); setDisplayCount(20); };
   const resetFilters = () => setFlt({ decks:[], opponents:[], opponentPersons:[], matchTypes:[], turns:[], results:[], lucky:false, unlucky:false, periodPreset:"all", dateFrom:"", dateTo:"" });
 
   useEffect(()=>{ save(st); }, [st]);
@@ -1316,7 +1319,7 @@ export default function App() {
   const addDeck = () => { if (!newDeck.name.trim()) return; const deck={id:Date.now().toString(),...newDeck,maxImages:10,currentImageId:null,createdAt:new Date().toISOString()}; setSt(s=>({...s,decks:[...s.decks,deck]})); setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); setShowAddDeck(false); };
   const deleteDeck = id => setSt(s=>({...s,decks:s.decks.filter(x=>x.id!==id),matches:s.matches.filter(m=>m.deckId!==id)}));
   const deleteMatch = id => setSt(s=>({...s,matches:s.matches.filter(m=>m.id!==id)}));
-  const handleMerge = (sel,name) => { setSt(s=>({...s, matches:s.matches.map(m=>sel.includes(m.opponent)?{...m,opponent:name}:m), opponentNames:Array.from(new Set([...(s.opponentNames||[]).filter(n=>!sel.includes(n)),name]))})); setShowMerge(false); };
+  const handleMerge = (sel,name) => { setSt(s=>({...s, matches:s.matches.map(m=>sel.includes(m.opponent)?{...m,opponent:name}:m), opponentNames:Array.from(new Set([...(s.opponentNames||[]).filter(n=>!sel.includes(n)),name]))})); setShowMerge(false); setCheckedOpps([]); };
   const handleMergeDecks = (selIds, name, baseId) => {
     setSt(s=>{
       const baseDeck=s.decks.find(d=>d.id===baseId);
@@ -1464,7 +1467,7 @@ export default function App() {
       </div>
       <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.card}}>
         {[["matches","対戦記録"],["decks","デッキ管理"],["stats","統計"],["settings","設定"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"13px 0",border:"none",background:"transparent",color:tab===k?C.accent:C.muted,borderBottom:tab===k?`2px solid ${C.accent}`:"2px solid transparent",fontWeight:tab===k?800:400,fontSize:13,cursor:"pointer"}}>{l}</button>
+          <button key={k} onClick={()=>switchTab(k)} style={{flex:1,padding:"13px 0",border:"none",background:"transparent",color:tab===k?C.accent:C.muted,borderBottom:tab===k?`2px solid ${C.accent}`:"2px solid transparent",fontWeight:tab===k?800:400,fontSize:13,cursor:"pointer"}}>{l}</button>
         ))}
       </div>
 
@@ -1507,7 +1510,7 @@ export default function App() {
               </div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {sorted.map(m=>{
+                {sorted.slice(0,displayCount).map(m=>{
                   const deck=getDeck(m.deckId);
                   const hex=deck?firstHex(deck.colors):null;
                   return (
@@ -1541,6 +1544,11 @@ export default function App() {
                     </div>
                   );
                 })}
+                {sorted.length>displayCount&&(
+                  <button onClick={()=>setDisplayCount(n=>n+20)} style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13,marginTop:4}}>
+                    さらに読み込む（残り{sorted.length-displayCount}件）
+                  </button>
+                )}
               </div>
             )}
           </div>
