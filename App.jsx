@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+// Google Fonts: Press Start 2P (pixel font)
+const _pixelFontLink = document.createElement("link");
+_pixelFontLink.rel = "stylesheet";
+_pixelFontLink.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
+document.head.appendChild(_pixelFontLink);
 
 const THEMES = {
   red: { label:"赤", bg:"#0f0a0a", card:"#1c1010", border:"#3d1a1a", accent:"#ff4d6d", accentDim:"#cc2244", win:"#00e676", lose:"#ff8800", draw:"#ffaa00", first:"#ffd700", second:"#a78bfa", text:"#ffe8e8", muted:"#996666", surface:"#1a0f0f" },
@@ -634,40 +639,46 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
   },[]);
 
   const isLandscape=vp.w>vp.h;
+  const PIXEL="'Press Start 2P','Courier New',monospace";
 
   if(isLandscape) return (
-    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,background:"#111",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,background:"#0a0a0a",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
       <div style={{fontSize:48}}>📱</div>
-      <div style={{color:"white",fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize:20,textAlign:"center",padding:"0 32px"}}>縦向きでご使用ください</div>
-      <div style={{color:"rgba(255,255,255,0.5)",fontSize:14,textAlign:"center"}}>Please rotate your device to portrait mode</div>
-      <button onClick={onClose} style={{marginTop:8,padding:"8px 20px",borderRadius:8,background:"rgba(255,255,255,0.15)",border:"2px solid rgba(255,255,255,0.4)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>✕ 閉じる</button>
+      <div style={{color:"white",fontFamily:PIXEL,fontSize:14,textAlign:"center",padding:"0 32px",lineHeight:2}}>縦向きでご使用ください</div>
+      <button onClick={onClose} style={{marginTop:8,padding:"8px 20px",fontFamily:PIXEL,fontSize:11,background:"transparent",border:"3px solid white",color:"white",cursor:"pointer",imageRendering:"pixelated"}}>CLOSE</button>
     </div>
   );
 
   const cW=vp.h,cH=vp.w;
-  const padH=24,padV=80,gf=0.15;
+  const padH=24,padV=80,gf=0.12;
   const btnFromW=(cW-padH)/(10+8*gf+1.1);
   const btnFromH=(cH-padV)/(2+gf);
   const btnSize=Math.floor(Math.min(btnFromW,btnFromH));
   const gap=Math.floor(btnSize*gf);
-  const zeroSize=Math.floor(btnSize*1.1);
-  const fontSize=Math.floor(btnSize*0.44);
-  const zeroFontSize=Math.floor(zeroSize*0.44);
+  const zeroSize=Math.floor(btnSize*1.15);
+  const fontSize=Math.floor(btnSize*0.38);
+  const zeroFontSize=Math.floor(zeroSize*0.38);
 
   const Btn=({value,side})=>{
     const isSelected=marker===value;
-    const bg=isSelected?(side==="p1"?accent:accentDim):"white";
+    const isInRange=side==="p1"
+      ? marker>0 && value>0 && value<=marker
+      : marker<0 && value<0 && value>=marker;
+    const col=side==="p1"?accent:accentDim;
+    const bg=isSelected?col:isInRange?"white":"rgba(255,255,255,0.2)";
     const textColor=isSelected?"white":"#111";
     const rot=side==="p2"?"rotate(180deg)":"none";
     return (
       <div onClick={()=>setMarker(value)} style={{
-        width:btnSize,height:btnSize,borderRadius:"50%",
+        width:btnSize,height:btnSize,borderRadius:0,
         background:bg,color:textColor,
-        fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize,
+        fontFamily:PIXEL,fontWeight:900,fontSize,
         cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
-        boxShadow:isSelected?"0 0 0 3px white, 0 0 12px 3px "+(side==="p1"?accent:accentDim):"0 2px 8px rgba(0,0,0,0.2)",
-        border:isSelected?"3px solid white":"3px solid transparent",
+        border:isSelected?`3px solid white`:isInRange?`2px solid rgba(255,255,255,0.8)`:`2px solid rgba(255,255,255,0.3)`,
         flexShrink:0,WebkitTapHighlightColor:"transparent",
+        opacity:isInRange||isSelected?1:0.35,
+        boxShadow:isSelected?`4px 4px 0 rgba(0,0,0,0.5), 0 0 0 2px white`:"2px 2px 0 rgba(0,0,0,0.4)",
+        imageRendering:"pixelated",
       }}>
         <span style={{transform:rot,display:"block",lineHeight:1}}>{Math.abs(value)}</span>
       </div>
@@ -675,18 +686,28 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
   };
 
   return (
-    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0a0a"}}>
       <div style={{width:cW,height:cH,transform:"rotate(90deg)",transformOrigin:"center center",flexShrink:0,position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",inset:0,background:accent}}/>
-        <div style={{position:"absolute",inset:0,background:accentDim,clipPath:"polygon(40% 0%, 100% 0%, 100% 100%, 60% 100%)"}}/>
-        <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.3)",clipPath:"polygon(39% 0%, 41% 0%, 61% 100%, 59% 100%)"}}/>
-        <div style={{position:"absolute",top:12,left:12,display:"flex",alignItems:"center",gap:8,zIndex:10}}>
-          <div style={{background:"white",padding:"5px 12px",fontWeight:900,fontSize:13,letterSpacing:1,color:"#111",fontFamily:"'Arial Black',Arial,sans-serif",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 1</div>
-          <div onClick={onClose} style={{width:28,height:28,borderRadius:"50%",background:"rgba(0,0,0,0.2)",border:"2px solid rgba(255,255,255,0.7)",color:"white",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,WebkitTapHighlightColor:"transparent"}}>✕</div>
+        {/* ドットグリッド背景 */}
+        <div style={{position:"absolute",inset:0,background:accent,opacity:0.9}}/>
+        <div style={{position:"absolute",inset:0,background:`repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px),repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px)`}}/>
+        <div style={{position:"absolute",inset:0,background:accentDim,opacity:0.9,clipPath:"polygon(42% 0%, 100% 0%, 100% 100%, 58% 100%)"}}/>
+        <div style={{position:"absolute",inset:0,background:`repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px),repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0.08) 4px)`,clipPath:"polygon(42% 0%, 100% 0%, 100% 100%, 58% 100%)"}}/>
+        {/* 境界線 */}
+        <div style={{position:"absolute",inset:0,background:"white",clipPath:"polygon(41% 0%, 43% 0%, 59% 100%, 57% 100%)"}}/>
+
+        {/* P1ラベル */}
+        <div style={{position:"absolute",top:10,left:10,display:"flex",alignItems:"center",gap:8,zIndex:10}}>
+          <div style={{background:"black",border:"3px solid white",padding:"4px 10px",fontWeight:900,fontSize:11,letterSpacing:2,color:"white",fontFamily:PIXEL,boxShadow:"3px 3px 0 rgba(0,0,0,0.5)"}}>P1</div>
+          <div onClick={onClose} style={{width:28,height:28,background:"black",border:"3px solid white",color:"white",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontFamily:PIXEL,boxShadow:"3px 3px 0 rgba(0,0,0,0.5)",WebkitTapHighlightColor:"transparent"}}>✕</div>
         </div>
-        <div style={{position:"absolute",bottom:12,right:12,zIndex:10,transform:"rotate(180deg)"}}>
-          <div style={{background:"white",padding:"5px 12px",fontWeight:900,fontSize:13,letterSpacing:1,color:"#111",fontFamily:"'Arial Black',Arial,sans-serif",boxShadow:"0 2px 8px rgba(0,0,0,0.3)"}}>PLAYER 2</div>
+
+        {/* P2ラベル */}
+        <div style={{position:"absolute",bottom:10,right:10,zIndex:10,transform:"rotate(180deg)"}}>
+          <div style={{background:"black",border:"3px solid white",padding:"4px 10px",fontWeight:900,fontSize:11,letterSpacing:2,color:"white",fontFamily:PIXEL,boxShadow:"3px 3px 0 rgba(0,0,0,0.5)"}}>P2</div>
         </div>
+
+        {/* ボタン群 */}
         <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:gap}}>
           <div style={{display:"flex",gap:gap,alignItems:"center"}}>
             <div style={{width:btnSize*5+gap*4+zeroSize+gap,flexShrink:0}}/>
@@ -694,7 +715,15 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
           </div>
           <div style={{display:"flex",gap:gap,alignItems:"center"}}>
             {[5,4,3,2,1].map(n=><Btn key={n} value={n} side="p1"/>)}
-            <div onClick={()=>setMarker(0)} style={{width:zeroSize,height:zeroSize,borderRadius:"50%",background:marker===0?"#888":"white",border:marker===0?"3px solid white":"3px solid transparent",color:marker===0?"white":"#111",fontFamily:"'Arial Black',Arial,sans-serif",fontWeight:900,fontSize:zeroFontSize,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:marker===0?"0 0 0 3px white, 0 0 12px 3px rgba(150,150,150,0.8)":"0 2px 8px rgba(0,0,0,0.2)",WebkitTapHighlightColor:"transparent"}}>0</div>
+            <div onClick={()=>setMarker(0)} style={{
+              width:zeroSize,height:zeroSize,borderRadius:0,
+              background:marker===0?"white":"rgba(255,255,255,0.85)",
+              border:marker===0?"4px solid white":"2px solid rgba(255,255,255,0.8)",
+              color:"#111",fontFamily:PIXEL,fontWeight:900,fontSize:zeroFontSize,
+              cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+              boxShadow:marker===0?"4px 4px 0 rgba(0,0,0,0.5), 0 0 0 3px white":"2px 2px 0 rgba(0,0,0,0.4)",
+              WebkitTapHighlightColor:"transparent",imageRendering:"pixelated",
+            }}>0</div>
             {[-1,-2,-3,-4,-5].map(n=><Btn key={n} value={n} side="p2"/>)}
           </div>
           <div style={{display:"flex",gap:gap,alignItems:"center"}}>
@@ -1284,6 +1313,10 @@ export default function App() {
   const [showAddOpp, setShowAddOpp] = useState(false);
   const [showMergeDeck, setShowMergeDeck] = useState(false);
   const [deckSearch, setDeckSearch] = useState("");
+  const [deckSort, setDeckSort] = useState("recent");
+  const [deckImgPreview, setDeckImgPreview] = useState(null);
+  const [oppSort, setOppSort] = useState("name");
+  const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [newOppName, setNewOppName] = useState("");
   const [statVis, setStatVis] = useState(()=>{ try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.statVis||{};return{overall:p.overall!==false,turns:p.turns!==false,deckBar:p.deckBar!==false,oppBar:p.oppBar!==false,deckPie:p.deckPie!==false,oppPie:p.oppPie!==false};}catch{return{overall:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true};} });
   const [deleteConfirmType, setDeleteConfirmType] = useState(null);
@@ -1684,17 +1717,34 @@ export default function App() {
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
                 <span style={{fontSize:13,color:C.muted,flex:1}}>{deckView==="mine"?`${st.decks.length}件のデッキ`:`${allOpponentNames.length}件`}</span>
                 {deckView==="mine"&&(
-                  <button disabled={checkedDecks.length<2} onClick={()=>{if(checkedDecks.length>=2)setShowMergeDeck(true);}} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${checkedDecks.length>=2?C.accent:C.border}`,background:checkedDecks.length>=2?C.accent+"22":"transparent",color:checkedDecks.length>=2?C.accent:C.muted,cursor:checkedDecks.length>=2?"pointer":"default",fontSize:12,fontWeight:checkedDecks.length>=2?700:400}}>統合{checkedDecks.length>=2?`(${checkedDecks.length})`:""}</button>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>setShowActiveOnly(v=>!v)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${showActiveOnly?C.accent:C.border}`,background:showActiveOnly?C.accent+"22":"transparent",color:showActiveOnly?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:showActiveOnly?700:400}}>使用中</button>
+                    <button disabled={checkedDecks.length<2} onClick={()=>{if(checkedDecks.length>=2)setShowMergeDeck(true);}} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${checkedDecks.length>=2?C.accent:C.border}`,background:checkedDecks.length>=2?C.accent+"22":"transparent",color:checkedDecks.length>=2?C.accent:C.muted,cursor:checkedDecks.length>=2?"pointer":"default",fontSize:12,fontWeight:checkedDecks.length>=2?700:400}}>統合{checkedDecks.length>=2?`(${checkedDecks.length})`:""}</button>
+                  </div>
                 )}
                 {deckView==="opponents"&&(
                   <button disabled={checkedOpps.length<2} onClick={()=>{if(checkedOpps.length>=2){setShowMerge(true);setMergeInitial(checkedOpps);}}} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${checkedOpps.length>=2?C.accent:C.border}`,background:checkedOpps.length>=2?C.accent+"22":"transparent",color:checkedOpps.length>=2?C.accent:C.muted,cursor:checkedOpps.length>=2?"pointer":"default",fontSize:12,fontWeight:checkedOpps.length>=2?700:400}}>統合{checkedOpps.length>=2?`(${checkedOpps.length})`:""}</button>
                 )}
                 <button onClick={()=>setShowDeckStats(s=>!s)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12}}>{showDeckStats?"勝率を隠す":"勝率を表示"}</button>
               </div>
-              <div style={{position:"relative",marginTop:8}}>
+              <div style={{display:"flex",gap:6,marginTop:8,alignItems:"center"}}>
+                {deckView==="mine"&&<select value={deckSort} onChange={e=>setDeckSort(e.target.value)} style={{flex:"0 0 auto",background:C.surface,border:`1px solid ${C.accent}`,borderRadius:8,color:C.accent,padding:"7px 10px",fontSize:12,fontWeight:700,outline:"none",cursor:"pointer"}}>
+                  <option value="recent">最近使用順</option>
+                  <option value="newest">登録新しい順</option>
+                  <option value="name">名前順</option>
+                  <option value="winrate">勝率順</option>
+                </select>}
+                {deckView==="opponents"&&<select value={oppSort} onChange={e=>setOppSort(e.target.value)} style={{flex:"0 0 auto",background:C.surface,border:`1px solid ${C.accent}`,borderRadius:8,color:C.accent,padding:"7px 10px",fontSize:12,fontWeight:700,outline:"none",cursor:"pointer"}}>
+                  <option value="name">名前順</option>
+                  <option value="most">対戦数順</option>
+                  <option value="winrate">勝率順</option>
+                  <option value="recent">最近対戦順</option>
+                </select>}
+                <div style={{position:"relative",flex:1}}>
                 <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:C.muted,pointerEvents:"none"}}>🔍</span>
                 <input value={deckSearch} onChange={e=>setDeckSearch(e.target.value)} placeholder="デッキ名で検索..." style={{width:"100%",background:C.surface,border:`1px solid ${deckSearch?C.accent:C.border}`,borderRadius:8,color:C.text,padding:"8px 32px 8px 32px",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
                 {deckSearch&&<button onClick={()=>setDeckSearch("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:14,lineHeight:1}}>✕</button>}
+                </div>
               </div>
             </div>
 
@@ -1718,23 +1768,54 @@ export default function App() {
               <div>
                 {st.decks.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:40,marginBottom:12}}>🃏</div><div>まだデッキが登録されていません</div></div>}
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {st.decks.filter(d=>!deckSearch||d.name.toLowerCase().includes(deckSearch.toLowerCase())).map(deck=>{
+                  {(()=>{
+                const now=Date.now();
+                const score=id=>st.matches.reduce((s,m)=>{if(m.deckId!==id)return s;const age=(now-new Date(m.createdAt).getTime())/(1000*60*60*24);return s+(age<=30?3:age<=90?1.5:1);},0);
+                return [...st.decks]
+                  .filter(d=>(!deckSearch||d.name.toLowerCase().includes(deckSearch.toLowerCase()))&&(!showActiveOnly||d.isActive))
+                  .sort((a,b)=>{
+                    if(deckSort==="recent") return score(b.id)-score(a.id);
+                    if(deckSort==="newest") return new Date(b.createdAt)-new Date(a.createdAt);
+                    if(deckSort==="name") return a.name.localeCompare(b.name,"ja");
+                    if(deckSort==="winrate"){const da=deckStats.find(d=>d.id===a.id);const db=deckStats.find(d=>d.id===b.id);return (db?.winRate||0)-(da?.winRate||0);}
+                    return 0;
+                  });
+              })().map(deck=>{
                     const ds=deckStats.find(d=>d.id===deck.id)||{total:0,wins:0,loses:0,draws:0,winRate:0};
                     const hex=firstHex(deck.colors); const checked=checkedDecks.includes(deck.id);
                     return (
-                      <div key={deck.id} onClick={()=>setCheckedDecks(prev=>checked?prev.filter(x=>x!==deck.id):[...prev,deck.id])} style={{background:C.card,border:`1.5px solid ${checked?C.accent:C.border}`,borderRadius:12,padding:14,cursor:"pointer"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:showDeckStats&&ds.total>0?8:0}}>
-                          <div style={{width:20,height:20,borderRadius:4,border:`2px solid ${checked?C.accent:C.muted}`,background:checked?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                            {checked&&<span style={{color:"#000",fontSize:11,fontWeight:900}}>✓</span>}
-                          </div>
-                          {(()=>{const curImg=(st.deckImages||[]).find(i=>i.id===deck.currentImageId)||(st.deckImages||[]).filter(i=>i.deckId===deck.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];return curImg?<img src={curImg.imageData} alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>:<DeckDot colors={deck.colors} size={14}/>;})()}
-                          <div style={{flex:1}}>
-                            <div style={{fontWeight:800,fontSize:15,color:hex||C.text}}>{deck.name}</div>
-                            {deck.notes&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>{deck.notes}</div>}
-                          </div>
-                          {showDeckStats&&<span style={{fontWeight:900,color:ds.winRate>=50?C.win:C.lose,fontSize:15}}>{ds.total>0?`${ds.winRate}%`:"−"}</span>}
-                          <button onClick={e=>{e.stopPropagation();setDeckDetail(deck);}} style={{background:"transparent",border:"none",color:C.accent,cursor:"pointer",fontSize:14,padding:"2px 4px",flexShrink:0}}>✏️</button>
-                        </div>
+                      <div key={deck.id} style={{background:deck.isActive?`linear-gradient(135deg,${C.accent}28,${C.accent}12)`:C.card,border:`1.5px solid ${deck.isActive?C.accent:checked?C.accent:C.border}`,borderRadius:12,overflow:"hidden",cursor:"pointer",boxShadow:deck.isActive?`0 0 8px ${C.accent}33`:"none"}}>
+                        {(()=>{
+                          const curImg=(st.deckImages||[]).find(i=>i.id===deck.currentImageId)||(st.deckImages||[]).filter(i=>i.deckId===deck.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
+                          return (
+                            <div style={{display:"flex",alignItems:"stretch",minHeight:56}}>
+                              {/* 左：チェックボックスエリア */}
+                              <div onClick={()=>setCheckedDecks(prev=>checked?prev.filter(x=>x!==deck.id):[...prev,deck.id])} style={{width:44,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",borderRight:`1px solid ${C.border}`,cursor:"pointer"}}>
+                                <div style={{width:20,height:20,borderRadius:4,border:`2px solid ${checked?C.accent:C.muted}`,background:checked?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                  {checked&&<span style={{color:"#000",fontSize:11,fontWeight:900}}>✓</span>}
+                                </div>
+                              </div>
+                              {/* 中央：デッキ情報（画像プレビューへ） */}
+                              <div onClick={()=>{if(curImg)setDeckImgPreview({deck,curImg});}} style={{flex:1,display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:curImg?"pointer":"default"}}>
+                                <DeckDot colors={deck.colors} size={14}/>
+                                {curImg&&<img src={curImg.imageData} alt="" style={{width:36,height:36,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>}
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontWeight:800,fontSize:15,color:hex||C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{deck.name}</div>
+                                  {deck.notes&&<div style={{fontSize:11,color:C.muted,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{deck.notes}</div>}
+                                </div>
+                                {showDeckStats&&<span style={{fontWeight:900,color:ds.winRate>=50?C.win:C.lose,fontSize:15,flexShrink:0}}>{ds.total>0?`${ds.winRate}%`:"−"}</span>}
+                              </div>
+                              {/* 右：使用中スイッチ + 編集ボタン */}
+                              <div onClick={e=>{e.stopPropagation();setSt(s=>({...s,decks:s.decks.map(d=>d.id===deck.id?{...d,isActive:!d.isActive}:d)}));}} style={{width:44,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,borderLeft:`1px solid ${C.border}`,cursor:"pointer",padding:"0 4px"}}>
+                                <div style={{width:32,height:18,borderRadius:9,background:deck.isActive?C.accent:"#333",position:"relative",transition:"background 0.2s",flexShrink:0}}>
+                                  <div style={{position:"absolute",top:2,left:deck.isActive?14:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
+                                </div>
+                                <span style={{fontSize:9,color:deck.isActive?C.accent:C.muted,fontWeight:deck.isActive?700:400}}>{deck.isActive?"使用中":"　　"}</span>
+                              </div>
+                              <div onClick={e=>{e.stopPropagation();setDeckDetail(deck);}} style={{width:40,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,cursor:"pointer",color:C.accent,fontSize:16}}>✏️</div>
+                            </div>
+                          );
+                        })()}
                         {showDeckStats&&ds.total>0&&(
                           <div style={{paddingLeft:30}}>
                             <div style={{display:"flex",borderRadius:4,overflow:"hidden",height:6}}>
@@ -1757,7 +1838,17 @@ export default function App() {
                 {showAddOpp&&<AddOppForm newOppName={newOppName} setNewOppName={setNewOppName} onCancel={()=>{setShowAddOpp(false);setNewOppName("");}} onAdd={()=>{const n=newOppName.trim();if(n&&!allOpponentNames.includes(n)){setSt(s=>({...s,opponentNames:Array.from(new Set([...(s.opponentNames||[]),n]))}));setNewOppName("");setShowAddOpp(false);}}} inputStyle={inputStyle}/>}
                 {allOpponentNames.length===0&&<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:40,marginBottom:12}}>👥</div><div>相手デッキの記録がありません</div></div>}
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {allOpponentNames.filter(n=>!deckSearch||n.toLowerCase().includes(deckSearch.toLowerCase())).map(name=>{
+                  {[...allOpponentNames]
+                    .filter(n=>!deckSearch||n.toLowerCase().includes(deckSearch.toLowerCase()))
+                    .sort((a,b)=>{
+                      const msA=st.matches.filter(m=>m.opponent===a), msB=st.matches.filter(m=>m.opponent===b);
+                      if(oppSort==="name") return a.localeCompare(b,"ja");
+                      if(oppSort==="most") return msB.length-msA.length;
+                      if(oppSort==="winrate"){const wrA=msA.length>0?msA.filter(m=>m.result==="win").length/msA.length:0;const wrB=msB.length>0?msB.filter(m=>m.result==="win").length/msB.length:0;return wrB-wrA;}
+                      if(oppSort==="recent"){const latestA=msA.reduce((d,m)=>m.date>d?m.date:d,"");const latestB=msB.reduce((d,m)=>m.date>d?m.date:d,"");return latestB.localeCompare(latestA);}
+                      return 0;
+                    })
+                    .map(name=>{
                     const ms=st.matches.filter(m=>m.opponent===name);
                     const w=ms.filter(m=>m.result==="win").length,l=ms.filter(m=>m.result==="lose").length,t=ms.length;
                     const dr=t-w-l; const wr2=t>0?Math.round(w/t*100):0; const checked=checkedOpps.includes(name);
@@ -2103,6 +2194,17 @@ ${usedCount}件の戦績の画像表示に影響します。`)) return;
         </div>
       )}
       {/* Memory Gauge Modal */}
+      {deckImgPreview&&(
+        <div onClick={()=>setDeckImgPreview(null)} style={{position:"fixed",inset:0,background:"#000d",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:16,overflow:"hidden",maxWidth:400,width:"100%"}}>
+            <img src={deckImgPreview.curImg.imageData} alt="" style={{width:"100%",maxHeight:"60vh",objectFit:"contain",display:"block",background:C.surface}}/>
+            <div style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}><DeckDot colors={deckImgPreview.deck.colors} size={14}/><span style={{fontWeight:800,fontSize:15}}>{deckImgPreview.deck.name}</span></div>
+              <button onClick={()=>setDeckImgPreview(null)} style={{background:"transparent",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",color:C.muted,cursor:"pointer",fontSize:13}}>閉じる</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showLife&&<MemoryGauge marker={marker} setMarker={setMarker} onClose={()=>setShowLife(false)} accent={C.accent} accentDim={C.accentDim} bg={C.bg} surface={C.surface} border={C.border} text={C.text} muted={C.muted} card={C.card}/>}
       {/* Modals */}
       {matchDetail&&<MatchDetailModal match={matchDetail} deck={getDeck(matchDetail.deckId)} onClose={()=>setMatchDetail(null)} onEdit={()=>{openEdit(matchDetail);setMatchDetail(null);}} formFields={st.formFields||{}} deckImages={st.deckImages||[]}/>}
