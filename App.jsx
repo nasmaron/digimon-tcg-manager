@@ -1727,7 +1727,7 @@ export default function App() {
                           <div style={{width:20,height:20,borderRadius:4,border:`2px solid ${checked?C.accent:C.muted}`,background:checked?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                             {checked&&<span style={{color:"#000",fontSize:11,fontWeight:900}}>✓</span>}
                           </div>
-                          <DeckDot colors={deck.colors} size={14}/>
+                          {(()=>{const curImg=(st.deckImages||[]).find(i=>i.id===deck.currentImageId)||(st.deckImages||[]).filter(i=>i.deckId===deck.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];return curImg?<img src={curImg.imageData} alt="" style={{width:40,height:40,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>:<DeckDot colors={deck.colors} size={14}/>;})()}
                           <div style={{flex:1}}>
                             <div style={{fontWeight:800,fontSize:15,color:hex||C.text}}>{deck.name}</div>
                             {deck.notes&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>{deck.notes}</div>}
