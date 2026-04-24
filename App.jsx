@@ -26,12 +26,67 @@ const DECK_COLORS = [
 ];
 
 const STORAGE_KEY = "digimon_tcg_v2";
+const IDB_NAME = "digimon_tcg_images";
+const IDB_STORE = "images";
+const IDB_VERSION = 1;
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE, {keyPath:"id"});
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbPut(item) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbGet(id) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbDelete(id) {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbGetAll() {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbClear() {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
 const DEFAULT_MATCH_TYPES = ["テイマーバトル","エボリューションカップ","アルティメットカップ","超テイマーバトル","店舗予選","フリー"];
 
 const FORM_FIELDS = [
-  { key:"date", label:"日付" }, { key:"matchType", label:"対戦種類" }, { key:"deck", label:"使用デッキ" },
-  { key:"opponent", label:"相手デッキ" }, { key:"opponentPerson", label:"対戦相手" }, { key:"turn", label:"先攻後攻" },
-  { key:"result", label:"勝敗" }, { key:"endTurn", label:"終了ターン" }, { key:"lucky", label:"運・不運" },
+  { key:"date", label:"日付" }, { key:"matchType", label:"対戦種類" }, { key:"deck", label:"使用デッキ", required:true },
+  { key:"opponent", label:"相手デッキ", required:true }, { key:"opponentPerson", label:"対戦相手" }, { key:"turn", label:"先攻後攻" },
+  { key:"result", label:"勝敗", required:true }, { key:"endTurn", label:"終了ターン" }, { key:"lucky", label:"運・不運" },
   { key:"notes", label:"メモ" }, { key:"deckUrl", label:"デッキURL" }, { key:"deckImage", label:"デッキ画像" }, { key:"image", label:"対戦画像" },
 ];
 
@@ -47,7 +102,14 @@ function load() {
     };
   } catch { return { decks:[], matches:[], opponentNames:[], matchTypes:[...DEFAULT_MATCH_TYPES], prefs:{}, theme:'blue', formFields:{}, opponents:[], deckImages:[], uiPrefs:{} }; }
 }
-function save(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
+function save(d) {
+  try {
+    const {deckImages, ...rest} = d;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
+  } catch(e) {
+    console.warn("localStorage save failed:", e);
+  }
+}
 function serializeData(st, includeImages=false) {
   if (includeImages) {
     return JSON.stringify({...st});
@@ -160,7 +222,7 @@ function DeckPicker({ value, onChange, names, placeholder="デッキ名", useId=
   const ref = useRef(null);
 
   const selectedName = useId ? (names.find(n=>n.id===value)?.name || "") : (value || "");
-  const textSuggestions = text.trim().length > 0 ? names.filter(n=>n.name.toLowerCase().includes(text.toLowerCase())&&n.name!==text) : [];
+  const textSuggestions = text.trim().length > 0 ? names.filter(n=>n.name.toLowerCase().includes(text.toLowerCase())) : [];
 
   const selectItem = item => { onChange(useId ? item.id : item.name, item.name); setText(item.name); setOpen(false); setFocused(false); ref.current?.blur(); };
 
@@ -249,8 +311,10 @@ function MatchTypePicker({ value, onChange, matchTypes, onAdd, onDelete }) {
   );
 }
 
-function Row({ label, children, fieldKey, formFields, onToggleField }) {
+function Row({ label, children, fieldKey, formFields, onToggleField, required=false }) {
   const minimized = fieldKey && (formFields||{})[fieldKey] === false;
+  const reqBadge = required && <span style={{fontSize:10,color:"#ff6b6b",fontWeight:700,marginLeft:4,flexShrink:0}}>必須</span>;
+  const labelEl = <span style={{fontSize:11,color:required?C.text:C.muted,letterSpacing:0.3,fontWeight:required?700:400,display:"flex",alignItems:"center"}}>{label}{reqBadge}</span>;
   if (fieldKey && onToggleField) {
     if (minimized) return (
       <div style={{display:"flex",alignItems:"center",paddingBottom:6,borderBottom:`1px solid ${C.border}`,opacity:0.45}}>
@@ -259,9 +323,9 @@ function Row({ label, children, fieldKey, formFields, onToggleField }) {
       </div>
     );
     return (
-      <div style={{paddingBottom:10,borderBottom:`1px solid ${C.border}`}}>
+      <div style={{paddingBottom:10,borderBottom:`1px solid ${required?C.accent:C.border}`,background:required?"rgba(255,255,255,0.04)":"transparent",borderRadius:required?8:0,padding:required?"10px 10px":"0 0 10px 0",marginBottom:required?"4px":0}}>
         <div style={{display:"flex",alignItems:"center",marginBottom:6}}>
-          <span style={{fontSize:11,color:C.muted,letterSpacing:0.3,flex:1}}>{label}</span>
+          <div style={{flex:1}}>{labelEl}</div>
           <span onClick={()=>onToggleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.muted,padding:"2px 8px",lineHeight:1}}>－</span>
         </div>
         <div>{children}</div>
@@ -270,7 +334,7 @@ function Row({ label, children, fieldKey, formFields, onToggleField }) {
   }
   return (
     <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:8,alignItems:"start",paddingBottom:10,borderBottom:`1px solid ${C.border}`}}>
-      <span style={{fontSize:11,color:C.muted,paddingTop:8,letterSpacing:0.3}}>{label}</span>
+      <div style={{paddingTop:8}}>{labelEl}</div>
       <div>{children}</div>
     </div>
   );
@@ -314,10 +378,10 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
           <Row label="対戦種類" fieldKey="matchType" formFields={formFields} onToggleField={onToggleField}>
             <MatchTypePicker value={form.matchType||""} onChange={v=>set({matchType:v})} matchTypes={matchTypes} onAdd={onAddMatchType} onDelete={onDeleteMatchType} />
           </Row>
-          <Row label="使用デッキ" fieldKey="deck" formFields={formFields} onToggleField={onToggleField}>
+          <Row label="使用デッキ" fieldKey="deck" formFields={formFields} onToggleField={onToggleField} required={true}>
             <DeckPicker value={form.deckId?((decks.find(d=>d.id===form.deckId)?.name)||form.deckName||""):form.deckName||""} onChange={v=>set({deckId:decks.find(d=>d.name===v)?.id||"",deckName:v})} names={decks} placeholder="デッキ名を入力" useId={false} />
           </Row>
-          <Row label="相手デッキ" fieldKey="opponent" formFields={formFields} onToggleField={onToggleField}>
+          <Row label="相手デッキ" fieldKey="opponent" formFields={formFields} onToggleField={onToggleField} required={true}>
             <DeckPicker value={form.opponent} onChange={v=>set({opponent:v})} names={Array.from(new Set([...decks.map(d=>d.name),...opponentNames])).sort().map(n=>({id:n,name:n}))} placeholder="相手のデッキ名" useId={false} />
           </Row>
           <Row label="対戦相手" fieldKey="opponentPerson" formFields={formFields} onToggleField={onToggleField}>
@@ -326,7 +390,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
           <Row label="先攻後攻" fieldKey="turn" formFields={formFields} onToggleField={onToggleField}>
             <ToggleRow options={[["first","⚡ 先攻",C.first],["second","🌙 後攻",C.second]]} value={form.turn} onChange={v=>set({turn:v})} />
           </Row>
-          <Row label="勝敗" fieldKey="result" formFields={formFields} onToggleField={onToggleField}>
+          <Row label="勝敗" fieldKey="result" formFields={formFields} onToggleField={onToggleField} required={true}>
             <ToggleRow options={[["win","🏆 勝",C.win],["lose","💀 敗",C.lose],["draw","🤝 分",C.draw]]} value={form.result} onChange={v=>set({result:v})} noDeselect={true} />
           </Row>
           <Row label="終了ターン" fieldKey="endTurn" formFields={formFields} onToggleField={onToggleField}>
@@ -390,16 +454,15 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
             {form.image&&<button onClick={()=>set({image:""})} style={{marginTop:6,background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:12}}>✕ 画像を削除</button>}
           </Row>
         </div>
-        {isEdit&&(
-          <div style={{padding:"16px 0 8px"}}>
-            <button onClick={onDelete} style={{width:"100%",padding:"13px 0",borderRadius:10,border:"none",background:"#ff4444",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer"}}>この記録を削除</button>
-          </div>
-        )}
+
       </div>
       {/* 下部ボタン */}
-      <div style={{padding:"12px 16px",borderTop:`1px solid ${C.border}`,display:"flex",gap:8,flexShrink:0}}>
-        <button onClick={()=>canSave&&onSave(form)} style={{flex:2,background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:15,cursor:canSave?"pointer":"default"}}>記録</button>
-        {!isEdit&&onContinue&&<button onClick={()=>{if(!canSave)return;onContinue(form);}} style={{flex:1,background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:14,cursor:canSave?"pointer":"default"}}>連続記録</button>}
+      <div style={{padding:"12px 16px",borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8,flexShrink:0}}>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>canSave&&onSave(form)} style={{flex:2,background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:15,cursor:canSave?"pointer":"default"}}>記録</button>
+          {!isEdit&&onContinue&&<button onClick={()=>{if(!canSave)return;onContinue(form);}} style={{flex:1,background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:14,cursor:canSave?"pointer":"default"}}>連続記録</button>}
+        </div>
+        {isEdit&&<button onClick={onDelete} style={{width:"100%",padding:"12px 0",borderRadius:8,border:"1px solid #ff4444",background:"transparent",color:"#ff4444",fontWeight:700,fontSize:14,cursor:"pointer"}}>この記録を削除</button>}
       </div>
     </div>
   );
@@ -645,14 +708,14 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
 }
 
 function BackupSizeInfo({st, C, serializeData}) {
+  const [idbCount, setIdbCount] = useState((st.deckImages||[]).length);
+  useEffect(()=>{ idbGetAll().then(imgs=>setIdbCount(imgs.length)).catch(()=>{}); },[]);
   const toKB = s => s.length < 1024*1024 ? Math.round(s.length/1024)+"KB" : (s.length/1024/1024).toFixed(1)+"MB";
-  const jsonFull = serializeData(st, true);
   const jsonNoImg = serializeData(st, false);
   return (
     <div style={{marginTop:10,background:C.surface,borderRadius:8,padding:"10px 12px",fontSize:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>画像込みサイズ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonFull)}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>画像なしサイズ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonNoImg)}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:C.muted}}>保存画像枚数</span><span style={{color:C.text,fontWeight:700}}>{(st.deckImages||[]).length}枚</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>テキストデータ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonNoImg)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>保存画像枚数</span><span style={{color:C.text,fontWeight:700}}>{idbCount}枚（IndexedDB）</span></div>
     </div>
   );
 }
@@ -900,7 +963,7 @@ function DeckDetailModal({ deck, deckStats, inputStyle, onClose, onSave, onDelet
   );
 }
 
-function OppCard({ name, checked, onToggle, showStats, w, l, dr, t, wr2, onRename, inputStyle }) {
+function OppCard({ name, checked, onToggle, showStats, w, l, dr, t, wr2, onRename, onDelete, inputStyle }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const save = () => { const n=draft.trim(); if(n&&n!==name) onRename(n); setEditing(false); };
@@ -921,6 +984,7 @@ function OppCard({ name, checked, onToggle, showStats, w, l, dr, t, wr2, onRenam
             <span style={{fontWeight:800,fontSize:15,flex:1}}>{name}</span>
             {showStats&&t>0&&<span style={{fontWeight:900,color:wr2>=50?C.win:C.lose,fontSize:15,flexShrink:0}}>{wr2}%</span>}
             <button onClick={e=>{e.stopPropagation();setDraft(name);setEditing(true);}} style={{background:"transparent",border:"none",color:C.accent,cursor:"pointer",fontSize:14,padding:"2px 4px",flexShrink:0}}>✏️</button>
+            <button onClick={e=>{e.stopPropagation();onDelete&&onDelete(name);}} style={{background:"transparent",border:"none",color:"#ff6b6b",cursor:"pointer",fontSize:14,padding:"2px 4px",flexShrink:0}}>🗑️</button>
           </>
         )}
       </div>
@@ -1005,7 +1069,7 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
   const [openPersonList, setOpenPersonList] = useState(false);
   const chip = (active) => ({ padding:"5px 11px", borderRadius:20, fontSize:12, cursor:"pointer", border:`1.5px solid ${active?C.accent:C.border}`, background:active?C.accent+"22":"transparent", color:active?C.accent:C.muted, fontWeight:active?700:400 });
   const listRow = (label, active) => ({ padding:"10px 14px", cursor:"pointer", fontSize:14, color:active?C.accent:C.text, background:active?C.accent+"18":"transparent", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" });
-  const deckLabel = flt.decks.length>0 ? decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name).join("・") : "すべて";
+  const deckLabel = flt.decks.length>0 ? [...decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name), ...(flt.decks.includes("__no_deck__")?["データなし"]:[])].join("・") : "すべて";
   const oppLabel  = flt.opponents.length>0 ? flt.opponents.join("・") : "すべて";
   return (
     <div>
@@ -1039,7 +1103,9 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
             </div>
             {openDeckList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.accent}`,borderRadius:8,zIndex:300,maxHeight:200,overflowY:"auto",boxShadow:"0 8px 24px #000a",marginTop:3}}>
               {decks.length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>登録がありません</div>
-              :decks.map(d=>{const sel=flt.decks.includes(d.id); return <div key={d.id} onMouseDown={()=>toggleArr("decks",d.id)} style={listRow(d.name,sel)}><span>{d.name}</span>{sel&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>;})}
+              :<>{decks.map(d=>{const sel=flt.decks.includes(d.id); return <div key={d.id} onMouseDown={()=>toggleArr("decks",d.id)} style={listRow(d.name,sel)}><span>{d.name}</span>{sel&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>;})}
+                <div onMouseDown={()=>toggleArr("decks","__no_deck__")} style={listRow("データなし",flt.decks.includes("__no_deck__"))}><span style={{color:C.muted}}>データなし</span>{flt.decks.includes("__no_deck__")&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>
+              </>}
             </div>}
           </div>
           <div style={{position:"relative"}}>
@@ -1106,7 +1172,7 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
   const [openOppList, setOpenOppList] = useState(false);
   const chip = (active) => ({ padding:"5px 11px", borderRadius:20, fontSize:12, cursor:"pointer", border:`1.5px solid ${active?C.accent:C.border}`, background:active?C.accent+"22":"transparent", color:active?C.accent:C.muted, fontWeight:active?700:400 });
   const listRow = (active) => ({ padding:"10px 14px", cursor:"pointer", fontSize:14, color:active?C.accent:C.text, background:active?C.accent+"18":"transparent", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" });
-  const deckLabel = flt.decks.length>0 ? decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name).join("・") : "すべて";
+  const deckLabel = flt.decks.length>0 ? [...decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name), ...(flt.decks.includes("__no_deck__")?["データなし"]:[])].join("・") : "すべて";
   const oppLabel = flt.opponents.length>0 ? flt.opponents.join("・") : "すべて";
   return (
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:12,marginBottom:4}}>
@@ -1135,7 +1201,9 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
         </div>
         {openDeckList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.accent}`,borderRadius:8,zIndex:300,maxHeight:200,overflowY:"auto",boxShadow:"0 8px 24px #000a",marginTop:3}}>
           {decks.length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>登録がありません</div>
-          :decks.map(d=>{const sel=flt.decks.includes(d.id);return <div key={d.id} onMouseDown={()=>toggleArr("decks",d.id)} style={listRow(sel)}><span>{d.name}</span>{sel&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>;})}
+          :<>{decks.map(d=>{const sel=flt.decks.includes(d.id);return <div key={d.id} onMouseDown={()=>toggleArr("decks",d.id)} style={listRow(sel)}><span>{d.name}</span>{sel&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>;})}
+            <div onMouseDown={()=>toggleArr("decks","__no_deck__")} style={listRow(flt.decks.includes("__no_deck__"))}><span style={{color:C.muted}}>データなし</span>{flt.decks.includes("__no_deck__")&&<span style={{color:C.accent,fontWeight:800,fontSize:13}}>✓</span>}</div>
+          </>}
         </div>}
       </div>
       <div style={{position:"relative"}}>
@@ -1180,6 +1248,7 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
 
 export default function App() {
   const [st, setSt] = useState(load);
+  const [idbLoading, setIdbLoading] = useState(true);
   const [tab, setTab] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");return d.uiPrefs?.tab||"matches";}catch{return "matches";} });
   const switchTab = t => { setTab(t); setDisplayCount(20); };
   const [screen, setScreen] = useState(null);
@@ -1205,6 +1274,9 @@ export default function App() {
   const [showLife, setShowLife] = useState(false);
   const [marker, setMarker] = useState(0);
   const [toast, setToast] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteOppTarget, setDeleteOppTarget] = useState(null);
+  const [deleteDeckTarget, setDeleteDeckTarget] = useState(null);
   const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 1000); };
   const [showNotes, setShowNotes] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");return d.uiPrefs?.showNotes!==false;}catch{return true;} });
   const [checkedOpps, setCheckedOpps] = useState([]);
@@ -1220,6 +1292,13 @@ export default function App() {
   const resetFilters = () => setFlt({ decks:[], opponents:[], opponentPersons:[], matchTypes:[], turns:[], results:[], lucky:false, unlucky:false, periodPreset:"all", dateFrom:"", dateTo:"" });
 
   useEffect(()=>{ save(st); }, [st]);
+
+  // IDBからdeckImagesを起動時に読み込む
+  useEffect(()=>{
+    idbGetAll().then(imgs=>{
+      if(imgs.length>0) setSt(s=>({...s,deckImages:imgs}));
+    }).catch(()=>{}).finally(()=>setIdbLoading(false));
+  },[]);
   useEffect(()=>{
     try{
       const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
@@ -1244,8 +1323,8 @@ export default function App() {
   };
   const makeNewBattle = (lastForm) => ({ deckId:lastForm.deckId, opponent:lastForm.opponent, matchType:lastForm.matchType, opponentPerson:lastForm.opponentPerson, turn:"", result:"win", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", date:new Date().toISOString().slice(0,10) });
 
-  const openAdd = (continueFrom=null, sc=0) => { const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,deckName:continueFrom.deckName||"",opponent:continueFrom.opponent,matchType:continueFrom.matchType,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
-  const openEdit = match => {
+  const openAdd = (continueFrom=null, sc=0) => { setDeleteTarget(null); const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,deckName:continueFrom.deckName||"",opponent:continueFrom.opponent,matchType:continueFrom.matchType,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
+  const openEdit = match => { setDeleteTarget(null);
     const deck = st.decks.find(d => d.id === match.deckId);
     setScreen({ mode:"edit", form:{
       deckId: match.deckId,
@@ -1291,6 +1370,8 @@ export default function App() {
       // デッキ画像が新たに設定されていれば追加
       if (form.deckImage) {
         const { newImgs, newImgId } = addDeckImage(deckImages, decks, deckId, form.deckImage);
+        const newImg = newImgs.find(i=>i.id===newImgId);
+        if(newImg) idbPut(newImg).catch(()=>{});
         deckImages = newImgs;
         imageId = newImgId;
         const deckMatches = s.matches.filter(m => m.deckId === deckId && m.id !== form._id);
@@ -1311,13 +1392,13 @@ export default function App() {
         return { ...s, decks, deckImages, matches, opponentNames, prefs };
       }
     });
-    showToast("記録しました"); setScreen(null); setMatchDetail(null);
+    showToast("記録しました"); setScreen(null); setMatchDetail(null); setDeleteTarget(null);
   };
 
   const addMatchType = t => setSt(s=>({...s, matchTypes:[...(s.matchTypes||DEFAULT_MATCH_TYPES), t]}));
   const deleteMatchType = t => setSt(s=>({...s, matchTypes:(s.matchTypes||DEFAULT_MATCH_TYPES).filter(x=>x!==t)}));
   const addDeck = () => { if (!newDeck.name.trim()) return; const deck={id:Date.now().toString(),...newDeck,maxImages:10,currentImageId:null,createdAt:new Date().toISOString()}; setSt(s=>({...s,decks:[...s.decks,deck]})); setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); setShowAddDeck(false); };
-  const deleteDeck = id => setSt(s=>({...s,decks:s.decks.filter(x=>x.id!==id),matches:s.matches.filter(m=>m.deckId!==id)}));
+  const deleteDeck = id => setSt(s=>({...s,decks:s.decks.filter(x=>x.id!==id)}));
   const deleteMatch = id => setSt(s=>({...s,matches:s.matches.filter(m=>m.id!==id)}));
   const handleMerge = (sel,name) => { setSt(s=>({...s, matches:s.matches.map(m=>sel.includes(m.opponent)?{...m,opponent:name}:m), opponentNames:Array.from(new Set([...(s.opponentNames||[]).filter(n=>!sel.includes(n)),name]))})); setShowMerge(false); setCheckedOpps([]); };
   const handleMergeDecks = (selIds, name, baseId) => {
@@ -1381,13 +1462,27 @@ export default function App() {
       }, 0);
     }
   }, [screen]);
+  if (idbLoading) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif"}}>
+      <div style={{fontSize:40}}>🌐</div>
+      <div style={{fontWeight:900,fontSize:18,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:1}}>DIGIMON TCG</div>
+      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        {[0,1,2].map(i=>(
+          <div key={i} style={{width:8,height:8,borderRadius:"50%",background:C.accent,animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite`,opacity:0.8}}/>
+        ))}
+      </div>
+      <div style={{fontSize:12,color:C.muted}}>データを読み込んでいます...</div>
+      <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:0.4}50%{transform:scale(1.4);opacity:1}}`}</style>
+    </div>
+  );
+
   if (screen) return (
     <div>
       <MatchEntry initial={screen.form} onSave={saveMatch} onCancel={()=>{setScreen(null);setMatchDetail(null);}}
         decks={sortedDecksForEntry} opponentNames={allOpponentNames} opponents={st.opponents||[]}
         matchTypes={matchTypes} onAddMatchType={addMatchType} onDeleteMatchType={deleteMatchType}
         isEdit={screen.mode==="edit"}
-        onDelete={screen.mode==="edit"?()=>{deleteMatch(screen.form._id);setScreen(null);setMatchDetail(null);}:undefined}
+        onDelete={screen.mode==="edit"?()=>{setDeleteTarget(screen.form._id);}:undefined}
         formFields={st.formFields||{}}
         carryOver={carryOver} onToggleCarryOver={next=>setCarryOver(next)}
         onToggleField={key=>setSt(s=>{const ff=s.formFields||{};const cur=ff[key]!==false;return{...s,formFields:{...ff,[key]:!cur}};})}
@@ -1400,6 +1495,18 @@ export default function App() {
           ✓ {toast}
         </div>
       )}
+      {deleteTarget&&(
+        <div style={{position:"fixed",inset:0,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:24}}>
+          <div style={{background:C.card,borderRadius:16,padding:24,width:"100%",maxWidth:400}}>
+            <div style={{fontSize:17,fontWeight:900,color:"#ff4444",marginBottom:12,textAlign:"center"}}>🗑️ この記録を削除しますか？</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:20,textAlign:"center",lineHeight:1.7}}>削除した記録は元に戻せません。</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setDeleteTarget(null)} style={{flex:1,padding:"12px 0",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:14,fontWeight:700}}>キャンセル</button>
+              <button onClick={()=>{deleteMatch(deleteTarget);setDeleteTarget(null);setScreen(null);setMatchDetail(null);}} style={{flex:2,padding:"12px 0",borderRadius:10,border:"none",background:"#ff4444",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:14}}>削除する</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1407,7 +1514,7 @@ export default function App() {
   const applyFilters = matches => {
     const now=new Date();
     return matches.filter(m=>{
-      if(flt.decks.length>0&&!flt.decks.includes(m.deckId)) return false;
+      if(flt.decks.length>0){ const hasNoDeck=flt.decks.includes("__no_deck__"); const deckIds=flt.decks.filter(x=>x!=="__no_deck__"); const deckExists=st.decks.some(d=>d.id===m.deckId); if(hasNoDeck&&!deckExists){ /* OK */ } else if(deckIds.length>0&&deckIds.includes(m.deckId)){ /* OK */ } else if(!hasNoDeck||deckExists){ return false; } }
       if(flt.opponents.length>0&&!flt.opponents.includes(m.opponent)) return false;
       if(flt.matchTypes.length>0&&!flt.matchTypes.includes(m.matchType||"")) return false;
       if(flt.periodPreset!=="all"){
@@ -1511,7 +1618,7 @@ export default function App() {
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {sorted.slice(0,displayCount).map(m=>{
-                  const deck=getDeck(m.deckId);
+                  const deck=getDeck(m.deckId); const deckMissing=m.deckId&&!deck;
                   const hex=deck?firstHex(deck.colors):null;
                   return (
                     <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={{background:C.card,border:`1.5px solid ${bulkMode&&bulkSelected.includes(m.id)?C.accent:C.border}`,borderRadius:12,padding:14,cursor:"pointer"}}>
@@ -1533,6 +1640,7 @@ export default function App() {
                       <div style={{display:"flex",alignItems:"center",gap:8,fontSize:12,marginBottom:m.notes&&showNotes?8:0}}>
                         {getMatchImage(m,st.deckImages||[],deck)&&<img src={getMatchImage(m,st.deckImages||[],deck)} alt="" style={{width:32,height:32,objectFit:"cover",borderRadius:6,flexShrink:0,border:`1px solid ${C.border}`}}/>}
                         {deck&&<span style={{display:"flex",alignItems:"center",gap:4,color:hex||C.text,fontWeight:700}}><DeckDot colors={deck.colors} size={10}/>{deck.name}</span>}
+                    {deckMissing&&<span style={{display:"flex",alignItems:"center",gap:4,color:C.muted,fontSize:11}}>⚠️ データなし</span>}
                         {m.matchType&&<span style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:4,padding:"1px 6px",color:C.muted,fontSize:11}}>{m.matchType}</span>}
                         <span style={{color:C.muted,fontSize:11,marginLeft:"auto"}}>{m.date}</span>
                       </div>
@@ -1657,6 +1765,7 @@ export default function App() {
                       <OppCard key={name} name={name} checked={checked} onToggle={()=>setCheckedOpps(prev=>checked?prev.filter(x=>x!==name):[...prev,name])}
                         showStats={showDeckStats} w={w} l={l} dr={dr} t={t} wr2={wr2}
                         onRename={newName=>{ if(newName&&newName!==name){ setSt(s=>({...s,matches:s.matches.map(m=>m.opponent===name?{...m,opponent:newName}:m),opponentNames:Array.from(new Set([...(s.opponentNames||[]).filter(n=>n!==name),newName]))})); } }}
+                        onDelete={n=>setDeleteOppTarget(n)}
                         inputStyle={inputStyle}
                       />
                     );
@@ -1928,6 +2037,44 @@ ${usedCount}件の戦績の画像表示に影響します。`)) return;
       </div>
 
       {/* 削除確認モーダル（画面中央） */}
+      {deleteTarget&&(
+        <div style={{position:"fixed",inset:0,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:24}}>
+          <div style={{background:C.card,borderRadius:16,padding:24,width:"100%",maxWidth:400}}>
+            <div style={{fontSize:17,fontWeight:900,color:"#ff4444",marginBottom:12,textAlign:"center"}}>🗑️ この記録を削除しますか？</div>
+            <div style={{fontSize:13,color:C.muted,marginBottom:20,textAlign:"center",lineHeight:1.7}}>削除した記録は元に戻せません。</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setDeleteTarget(null)} style={{flex:1,padding:"12px 0",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:14,fontWeight:700}}>キャンセル</button>
+              <button onClick={()=>{deleteMatch(deleteTarget);setDeleteTarget(null);setScreen(null);setMatchDetail(null);}} style={{flex:2,padding:"12px 0",borderRadius:10,border:"none",background:"#ff4444",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:14}}>削除する</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteDeckTarget&&(
+        <div style={{position:"fixed",inset:0,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:24}}>
+          <div style={{background:C.card,borderRadius:16,padding:24,width:"100%",maxWidth:400}}>
+            <div style={{fontSize:17,fontWeight:900,color:"#ff4444",marginBottom:8,textAlign:"center"}}>🗑️ デッキを削除</div>
+            <div style={{fontSize:14,color:C.text,marginBottom:6,textAlign:"center",fontWeight:700}}>「{st.decks.find(d=>d.id===deleteDeckTarget)?.name}」</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:20,textAlign:"center",lineHeight:1.7}}>デッキ情報のみ削除します。関連する対戦記録は「データなし」として残ります。この操作は取り消せません。</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setDeleteDeckTarget(null)} style={{flex:1,padding:"12px 0",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:14,fontWeight:700}}>キャンセル</button>
+              <button onClick={()=>{deleteDeck(deleteDeckTarget);setDeleteDeckTarget(null);setDeckDetail(null);}} style={{flex:2,padding:"12px 0",borderRadius:10,border:"none",background:"#ff4444",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:14}}>削除する</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteOppTarget&&(
+        <div style={{position:"fixed",inset:0,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:24}}>
+          <div style={{background:C.card,borderRadius:16,padding:24,width:"100%",maxWidth:400}}>
+            <div style={{fontSize:17,fontWeight:900,color:"#ff4444",marginBottom:8,textAlign:"center"}}>🗑️ 相手デッキを削除</div>
+            <div style={{fontSize:14,color:C.text,marginBottom:6,textAlign:"center",fontWeight:700}}>「{deleteOppTarget}」</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:20,textAlign:"center",lineHeight:1.7}}>この相手デッキ名を削除します。関連する対戦記録は残ります。</div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>setDeleteOppTarget(null)} style={{flex:1,padding:"12px 0",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:14,fontWeight:700}}>キャンセル</button>
+              <button onClick={()=>{setSt(s=>({...s,opponentNames:(s.opponentNames||[]).filter(n=>n!==deleteOppTarget)}));setDeleteOppTarget(null);}} style={{flex:2,padding:"12px 0",borderRadius:10,border:"none",background:"#ff4444",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:14}}>削除する</button>
+            </div>
+          </div>
+        </div>
+      )}
       {deleteConfirmType&&(
         <div style={{position:"fixed",inset:0,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:24}}>
           <div style={{background:C.card,borderRadius:16,padding:24,width:"100%",maxWidth:400,boxShadow:"0 20px 60px #000a"}}>
@@ -1940,7 +2087,7 @@ ${usedCount}件の戦績の画像表示に影響します。`)) return;
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>setDeleteConfirmType(null)} style={{flex:1,padding:"12px 0",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:14,fontWeight:700}}>キャンセル</button>
               <button onClick={()=>{
-                if(deleteConfirmType==="all"){setSt({decks:[],matches:[],opponentNames:[],matchTypes:[...DEFAULT_MATCH_TYPES],prefs:{},theme:st.theme,formFields:{},battleFormFields:{},opponents:[]});}
+                if(deleteConfirmType==="all"){idbClear().catch(()=>{}); setSt({decks:[],matches:[],opponentNames:[],matchTypes:[...DEFAULT_MATCH_TYPES],prefs:{},theme:st.theme,formFields:{},opponents:[],deckImages:[]});}
                 else{setSt(s=>({...s,decks:s.decks.map(d=>({...d,image:""})),matches:s.matches.map(m=>({...m,image:"",deckImage:""})),}));}
                 setDeleteConfirmType(null);
               }} style={{flex:2,padding:"12px 0",borderRadius:10,border:"none",background:"#ff4444",color:"#fff",fontWeight:800,cursor:"pointer",fontSize:14}}>削除する</button>
@@ -1959,7 +2106,7 @@ ${usedCount}件の戦績の画像表示に影響します。`)) return;
       {showLife&&<MemoryGauge marker={marker} setMarker={setMarker} onClose={()=>setShowLife(false)} accent={C.accent} accentDim={C.accentDim} bg={C.bg} surface={C.surface} border={C.border} text={C.text} muted={C.muted} card={C.card}/>}
       {/* Modals */}
       {matchDetail&&<MatchDetailModal match={matchDetail} deck={getDeck(matchDetail.deckId)} onClose={()=>setMatchDetail(null)} onEdit={()=>{openEdit(matchDetail);setMatchDetail(null);}} formFields={st.formFields||{}} deckImages={st.deckImages||[]}/>}
-      {deckDetail&&<DeckDetailModal deck={deckDetail} deckStats={deckStats.find(d=>d.id===deckDetail.id)} inputStyle={inputStyle} onClose={()=>setDeckDetail(null)} deckImages={st.deckImages||[]} onSave={form=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckDetail.id?{...d,...form}:d)}));setDeckDetail(null);}} onSaveImage={(deckId,imageData)=>{let retId=null;setSt(s=>{const{newImgs,newImgId}=addDeckImage(s.deckImages||[],s.decks,deckId,imageData);retId=newImgId;return{...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newImgId}:d)};});return retId;}} onDeleteImage={(imgId,deckId)=>{setSt(s=>{const newImgs=s.deckImages.filter(i=>i.id!==imgId);const deck=s.decks.find(d=>d.id===deckId);const newCurrentId=deck?.currentImageId===imgId?(newImgs.filter(i=>i.deckId===deckId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]?.id||null):deck?.currentImageId;return{...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newCurrentId}:d)};});}} onSetCurrentImage={(deckId,imgId)=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:imgId}:d)}));}} onDelete={()=>{deleteDeck(deckDetail.id);setDeckDetail(null);}} allDecks={st.decks} />}
+      {deckDetail&&<DeckDetailModal deck={deckDetail} deckStats={deckStats.find(d=>d.id===deckDetail.id)} inputStyle={inputStyle} onClose={()=>setDeckDetail(null)} deckImages={st.deckImages||[]} onSave={form=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckDetail.id?{...d,...form}:d)}));setDeckDetail(null);}} onSaveImage={(deckId,imageData)=>{let retId=null;setSt(s=>{const{newImgs,newImgId}=addDeckImage(s.deckImages||[],s.decks,deckId,imageData);retId=newImgId;const newImg=newImgs.find(i=>i.id===newImgId);if(newImg)idbPut(newImg).catch(()=>{});const next={...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newImgId}:d)};save(next);return next;});return retId;}} onDeleteImage={(imgId,deckId)=>{idbDelete(imgId).catch(()=>{});setSt(s=>{const newImgs=s.deckImages.filter(i=>i.id!==imgId);const deck=s.decks.find(d=>d.id===deckId);const newCurrentId=deck?.currentImageId===imgId?(newImgs.filter(i=>i.deckId===deckId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]?.id||null):deck?.currentImageId;const next={...s,deckImages:newImgs,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:newCurrentId}:d)};save(next);return next;});}} onSetCurrentImage={(deckId,imgId)=>{setSt(s=>({...s,decks:s.decks.map(d=>d.id===deckId?{...d,currentImageId:imgId}:d)}));}} onDelete={()=>{setDeleteDeckTarget(deckDetail.id);}} allDecks={st.decks} />}
       {showMerge&&<MergeModal allNames={allOpponentNames} onMerge={handleMerge} onCancel={()=>setShowMerge(false)} initialSelected={mergeInitial} />}
       {showMergeDeck&&<DeckMergeModal decks={st.decks} selectedIds={checkedDecks} deckImages={st.deckImages||[]} onMerge={handleMergeDecks} onCancel={()=>setShowMergeDeck(false)}/>}
     </div>
