@@ -1100,11 +1100,31 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
   const listRow = (label, active) => ({ padding:"10px 14px", cursor:"pointer", fontSize:14, color:active?C.accent:C.text, background:active?C.accent+"18":"transparent", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" });
   const deckLabel = flt.decks.length>0 ? [...decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name), ...(flt.decks.includes("__no_deck__")?["データなし"]:[])].join("・") : "すべて";
   const oppLabel  = flt.opponents.length>0 ? flt.opponents.join("・") : "すべて";
+  // 絞り込み内容のサマリーを生成
+  const periodLabel = flt.periodPreset==="today"?"今日":flt.periodPreset==="week"?"今週":flt.periodPreset==="month"?"今月":flt.periodPreset==="year"?"今年":null;
+  const summaryItems = [
+    ...(periodLabel?[{label:periodLabel,key:"periodPreset"}]:[]),
+    ...((flt.dateFrom||flt.dateTo)?[{label:(flt.dateFrom||"")+"〜"+(flt.dateTo||""),key:"daterange"}]:[]),
+    ...decks.filter(d=>flt.decks.includes(d.id)).map(d=>({label:d.name,key:"deck_"+d.id})),
+    ...(flt.decks.includes("__no_deck__")?[{label:"データなし",key:"no_deck"}]:[]),
+    ...flt.opponents.map(n=>({label:"vs "+n,key:"opp_"+n})),
+    ...flt.matchTypes.map(t=>({label:t,key:"mt_"+t})),
+    ...flt.turns.map(t=>({label:t==="first"?"先攻":t==="second"?"後攻":"未設定",key:"turn_"+t})),
+    ...flt.results.map(r=>({label:r==="win"?"勝":r==="lose"?"敗":"分",key:"result_"+r})),
+  ];
+
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:open?6:0}}>
         <FilterBarTop activeFilters={activeFilters} open={open} setOpen={setOpen} onReset={onReset}/>
       </div>
+      {!open&&summaryItems.length>0&&(
+        <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8,marginTop:2}}>
+          {summaryItems.map(item=>(
+            <span key={item.key} style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700}}>{item.label}</span>
+          ))}
+        </div>
+      )}
       {open&&(
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:12}}>
           <div>
@@ -1810,7 +1830,7 @@ export default function App() {
                                 <div style={{width:32,height:18,borderRadius:9,background:deck.isActive?C.accent:"#333",position:"relative",transition:"background 0.2s",flexShrink:0}}>
                                   <div style={{position:"absolute",top:2,left:deck.isActive?14:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
                                 </div>
-                                <span style={{fontSize:9,color:deck.isActive?C.accent:C.muted,fontWeight:deck.isActive?700:400}}>{deck.isActive?"使用中":"　　"}</span>
+                                <span style={{fontSize:9,color:deck.isActive?C.accent:C.muted,fontWeight:deck.isActive?700:400}}>使用中</span>
                               </div>
                               <div onClick={e=>{e.stopPropagation();setDeckDetail(deck);}} style={{width:40,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",borderLeft:`1px solid ${C.border}`,cursor:"pointer",color:C.accent,fontSize:16}}>✏️</div>
                             </div>
