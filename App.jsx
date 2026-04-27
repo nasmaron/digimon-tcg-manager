@@ -1518,7 +1518,7 @@ export default function App() {
   if (idbLoading) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif"}}>
       <div style={{fontSize:40}}>🌐</div>
-      <div style={{fontWeight:900,fontSize:18,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:1}}>DIGIMON TCG</div>
+      <div style={{fontWeight:900,fontSize:18,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:1}}>DegiLog</div>
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
         {[0,1,2].map(i=>(
           <div key={i} style={{width:8,height:8,borderRadius:"50%",background:C.accent,animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite`,opacity:0.8}}/>
@@ -1618,8 +1618,7 @@ export default function App() {
       <div style={{background:"linear-gradient(180deg,#0d1525 0%,#0a0e1a 100%)",borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
         <div style={{fontSize:22}}>🌐</div>
         <div style={{flex:1}}>
-          <div style={{fontWeight:900,fontSize:17,letterSpacing:1,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>DIGIMON TCG</div>
-          <div style={{fontSize:10,color:C.muted,letterSpacing:2}}>BATTLE TRACKER</div>
+          <div style={{fontWeight:900,fontSize:20,letterSpacing:1,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>DegiLog</div>
         </div>
         <button onClick={()=>setShowLife(v=>!v)} style={{background:showLife?C.accent+"33":"transparent",border:`1px solid ${showLife?C.accent:C.border}`,borderRadius:10,padding:"7px 12px",color:showLife?C.accent:C.muted,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
           メモリーゲージ
