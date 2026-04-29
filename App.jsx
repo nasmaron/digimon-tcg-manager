@@ -322,13 +322,13 @@ function Row({ label, children, fieldKey, formFields, onToggleField, required=fa
   const labelEl = <span style={{fontSize:11,color:required?C.text:C.muted,letterSpacing:0.3,fontWeight:required?700:400,display:"flex",alignItems:"center"}}>{label}{reqBadge}</span>;
   if (fieldKey && onToggleField) {
     if (minimized) return (
-      <div style={{display:"flex",alignItems:"center",paddingBottom:6,borderBottom:`1px solid ${C.border}`,opacity:0.45}}>
+      <div style={{display:"flex",alignItems:"center",paddingBottom:6,paddingTop:4,borderBottom:`1px solid ${C.border}`,opacity:0.45}}>
         <span style={{fontSize:10,color:C.muted,letterSpacing:0.3,flex:1}}>{label}</span>
         <span onClick={()=>onToggleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.accent,padding:"2px 8px",lineHeight:1,fontWeight:700}}>＋</span>
       </div>
     );
     return (
-      <div style={{paddingBottom:10,borderBottom:`1px solid ${C.border}`,background:required?`${C.accent}22`:"transparent",borderRadius:required?8:0,padding:required?"8px 10px 10px 10px":"0 0 10px 0",marginBottom:required?"4px":0,marginTop:required?"4px":0}}>
+      <div style={{paddingBottom:10,borderBottom:`1px solid ${C.border}`,background:required?`${C.accent}22`:"transparent",borderRadius:required?8:0,padding:required?"8px 10px 10px 10px":"4px 0 10px 0",marginBottom:required?"4px":0,marginTop:required?"4px":0}}>
         <div style={{display:"flex",alignItems:"center",marginBottom:6}}>
           <div style={{flex:1}}>{labelEl}</div>
           <span onClick={()=>onToggleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.muted,padding:"2px 8px",lineHeight:1}}>－</span>
