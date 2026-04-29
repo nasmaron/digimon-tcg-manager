@@ -1776,8 +1776,8 @@ export default function App() {
 
             {/* デッキ追加モーダル */}
             {showAddDeck&&(
-              <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:200,touchAction:"none",overflow:"hidden"}} onClick={e=>{if(e.target===e.currentTarget){setShowAddDeck(false);setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); }}}>
-                <div style={{background:C.card,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:600,margin:"0 auto",padding:20,maxHeight:"85vh",overflowY:"auto"}}>
+              <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,touchAction:"none",overflow:"hidden",padding:24}} onClick={e=>{if(e.target===e.currentTarget){setShowAddDeck(false);setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); }}}>
+                <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:480,padding:20,maxHeight:"85vh",overflowY:"auto"}}>
                   <div style={{fontWeight:800,fontSize:15,marginBottom:16}}>デッキを追加</div>
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
                     <div><div style={{fontSize:11,color:C.muted,marginBottom:5}}>デッキ名 *</div><input value={newDeck.name} onChange={e=>setNewDeck(d=>({...d,name:e.target.value}))} placeholder="例: アグロ赤" style={inputStyle} autoFocus/></div>
