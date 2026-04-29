@@ -916,6 +916,7 @@ function DeckDetailModal({ deck, deckStats, inputStyle, onClose, onSave, onDelet
   const [form, setForm] = useState({ name:deck.name||"", colors:deck.colors||[], url:deck.url||"", notes:deck.notes||"", parentId:deck.parentId||"", maxImages:deck.maxImages??10 });
   const [newImageData, setNewImageData] = useState(null);
   const [currentImageId, setCurrentImageId] = useState(deck.currentImageId||null);
+  useEffect(()=>{ const prev=document.body.style.overflow; document.body.style.overflow="hidden"; return()=>{ document.body.style.overflow=prev; }; },[]);
   const thisImages = deckImages.filter(i=>i.deckId===deck.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const set = patch => setForm(f=>({...f,...patch}));
   const ds = deckStats || {};
@@ -1776,7 +1777,7 @@ export default function App() {
 
             {/* デッキ追加モーダル */}
             {showAddDeck&&(
-              <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,touchAction:"none",overflow:"hidden",padding:24}} onClick={e=>{if(e.target===e.currentTarget){setShowAddDeck(false);setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); }}}>
+              <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,touchAction:"none",overflow:"hidden",padding:24}} onTouchMove={e=>e.preventDefault()} onClick={e=>{if(e.target===e.currentTarget){setShowAddDeck(false);setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); }}}>
                 <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:480,padding:20,maxHeight:"85vh",overflowY:"auto"}}>
                   <div style={{fontWeight:800,fontSize:15,marginBottom:16}}>デッキを追加</div>
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -2041,7 +2042,7 @@ export default function App() {
             {/* CSV Import */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
               <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>CSVインポート</div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:14}}>TCGmanagerからエクスポートしたCSVを読み込みます。</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:14}}>他の対戦記録アプリのCSVを読み込みます。対応アプリについては開発者までお問い合わせください。</div>
               {!importResult?(
                 <label style={{display:"block",padding:"14px",borderRadius:10,border:`2px dashed ${C.accent}`,textAlign:"center",cursor:"pointer",color:C.accent,fontSize:14,fontWeight:700}}>
                   📂 CSVファイルを選択
