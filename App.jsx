@@ -328,7 +328,7 @@ function Row({ label, children, fieldKey, formFields, onToggleField, required=fa
       </div>
     );
     return (
-      <div style={{paddingBottom:10,borderBottom:`1px solid ${required?C.accent:C.border}`,background:required?"rgba(255,255,255,0.04)":"transparent",borderRadius:required?8:0,padding:required?"10px 10px":"0 0 10px 0",marginBottom:required?"4px":0}}>
+      <div style={{paddingBottom:10,borderBottom:`1px solid ${C.border}`,background:required?`${C.accent}22`:"transparent",borderRadius:required?8:0,padding:required?"8px 10px 10px 10px":"0 0 10px 0",marginBottom:required?"4px":0,marginTop:required?"4px":0}}>
         <div style={{display:"flex",alignItems:"center",marginBottom:6}}>
           <div style={{flex:1}}>{labelEl}</div>
           <span onClick={()=>onToggleField(fieldKey)} style={{fontSize:13,cursor:"pointer",color:C.muted,padding:"2px 8px",lineHeight:1}}>－</span>
@@ -354,7 +354,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
 
   return (
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif",display:"flex",flexDirection:"column",maxWidth:"100vw",overflowX:"clip"}}>
-      <div style={{background:`linear-gradient(180deg,#0d1525 0%,${C.bg} 100%)`,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:6}}>
+      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:6}}>
         <button onClick={onCancel} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:14,fontWeight:700,padding:"8px 12px",borderRadius:8,flexShrink:0}}>← 戻る</button>
         <div style={{textAlign:"center",flex:1,minWidth:0}}>
           <div style={{fontWeight:800,fontSize:15}}>{isEdit?"対戦を編集":"対戦を記録"}</div>
@@ -365,7 +365,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
           {!isEdit&&onContinue&&<button onClick={()=>canSave&&onContinue(form)} style={{background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"7px 8px",fontWeight:800,fontSize:11,cursor:canSave?"pointer":"default",whiteSpace:"nowrap"}}>連続記録</button>}
         </div>
       </div>
-      <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"12px 16px",maxWidth:600,margin:"0 auto",width:"100%",boxSizing:"border-box",minWidth:0}}>
+      <div ref={scrollRef} style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"12px 16px",maxWidth:600,margin:"0 auto",width:"100%",boxSizing:"border-box",minWidth:0}}>
         {!isEdit&&(
           <div>
             <div onClick={()=>{ const next=!carryOver; onToggleCarryOver(next); if(next){setForm(initial);}else{setForm(f=>({...f,deckId:"",opponent:"",matchType:"",opponentPerson:""}));} }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,marginBottom:8,cursor:"pointer",background:C.surface,border:`1px solid ${carryOver?C.accent:C.border}`}}>
@@ -378,7 +378,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
         )}
         <div style={{display:"flex",flexDirection:"column",gap:0}}>
           <Row label="日付" fieldKey="date" formFields={formFields} onToggleField={onToggleField}>
-            <input type="date" value={form.date} onChange={e=>set({date:e.target.value})} style={{...inputStyle,maxWidth:"100%",minWidth:0}} />
+            <input type="date" value={form.date} onChange={e=>set({date:e.target.value})} style={{...inputStyle,width:"100%",maxWidth:"100%",minWidth:0,boxSizing:"border-box",WebkitAppearance:"none",appearance:"none"}} />
           </Row>
           <Row label="対戦種類" fieldKey="matchType" formFields={formFields} onToggleField={onToggleField}>
             <MatchTypePicker value={form.matchType||""} onChange={v=>set({matchType:v})} matchTypes={matchTypes} onAdd={onAddMatchType} onDelete={onDeleteMatchType} />
@@ -480,7 +480,7 @@ function MatchDetailModal({ match, deck, onClose, onEdit, formFields={}, deckIma
   return (
     <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:200,overflow:"hidden",touchAction:"none"}}>
       <div style={{background:C.card,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"92vh",overflowY:"auto"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 18px",borderBottom:`1px solid ${C.border}`}}>
           <button onClick={onClose} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:16,fontWeight:700,padding:"8px 16px",borderRadius:8}}>← 戻る</button>
           <span style={{fontWeight:800,fontSize:15}}>vs {match.opponent}</span>
           <button onClick={onEdit} style={{background:"transparent",border:`1px solid ${C.accent}`,color:C.accent,cursor:"pointer",fontSize:13,padding:"7px 14px",borderRadius:8,fontWeight:700}}>編集</button>
@@ -922,7 +922,7 @@ function DeckDetailModal({ deck, deckStats, inputStyle, onClose, onSave, onDelet
   return (
     <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:200,overflow:"hidden",touchAction:"none"}}>
       <div style={{background:C.card,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:600,margin:"0 auto",maxHeight:"92vh",overflowY:"auto"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 18px",borderBottom:`1px solid ${C.border}`}}>
           <button onClick={onClose} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:16,fontWeight:700,padding:"8px 16px",borderRadius:8}}>← 戻る</button>
           <span style={{fontWeight:800,fontSize:15}}>{deck.name}</span>
           <button onClick={()=>onSave(form)} style={{background:`linear-gradient(135deg,${C.accent},${C.accentDim})`,color:"#000",border:"none",borderRadius:8,padding:"8px 16px",fontWeight:800,fontSize:14,cursor:"pointer"}}>保存する</button>
@@ -1450,6 +1450,13 @@ export default function App() {
 
   const addMatchType = t => setSt(s=>({...s, matchTypes:[...(s.matchTypes||DEFAULT_MATCH_TYPES), t]}));
   const deleteMatchType = t => setSt(s=>({...s, matchTypes:(s.matchTypes||DEFAULT_MATCH_TYPES).filter(x=>x!==t)}));
+  const moveMatchType = (t, dir) => setSt(s=>{
+    const arr=[...(s.matchTypes||DEFAULT_MATCH_TYPES)];
+    const i=arr.indexOf(t); if(i<0) return s;
+    const j=i+dir; if(j<0||j>=arr.length) return s;
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+    return {...s,matchTypes:arr};
+  });
   const addDeck = () => { if (!newDeck.name.trim()) return; const deck={id:Date.now().toString(),...newDeck,maxImages:10,currentImageId:null,createdAt:new Date().toISOString()}; setSt(s=>({...s,decks:[...s.decks,deck]})); setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); setShowAddDeck(false); };
   const deleteDeck = id => setSt(s=>({...s,decks:s.decks.filter(x=>x.id!==id)}));
   const deleteMatch = id => setSt(s=>({...s,matches:s.matches.filter(m=>m.id!==id)}));
@@ -1518,7 +1525,7 @@ export default function App() {
   if (idbLoading) return (
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif"}}>
       <div style={{fontSize:40}}>🌐</div>
-      <div style={{fontWeight:900,fontSize:18,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:1}}>DegiLog</div>
+      <div style={{fontWeight:900,fontSize:18,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",letterSpacing:1}}>DigiLog</div>
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
         {[0,1,2].map(i=>(
           <div key={i} style={{width:8,height:8,borderRadius:"50%",background:C.accent,animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite`,opacity:0.8}}/>
@@ -1615,10 +1622,10 @@ export default function App() {
 
   return (
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif"}}>
-      <div style={{background:"linear-gradient(180deg,#0d1525 0%,#0a0e1a 100%)",borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
+      <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
         <div style={{fontSize:22}}>🌐</div>
         <div style={{flex:1}}>
-          <div style={{fontWeight:900,fontSize:20,letterSpacing:1,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>DegiLog</div>
+          <div style={{fontWeight:900,fontSize:20,letterSpacing:1,background:`linear-gradient(90deg,${C.accent},#7c6fff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>DigiLog</div>
         </div>
         <button onClick={()=>setShowLife(v=>!v)} style={{background:showLife?C.accent+"33":"transparent",border:`1px solid ${showLife?C.accent:C.border}`,borderRadius:10,padding:"7px 12px",color:showLife?C.accent:C.muted,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
           メモリーゲージ
@@ -1769,8 +1776,8 @@ export default function App() {
 
             {/* デッキ追加モーダル */}
             {showAddDeck&&(
-              <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"flex-end",zIndex:200,touchAction:"none",overflow:"hidden"}} onClick={e=>{if(e.target===e.currentTarget){setShowAddDeck(false);setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); }}}>
-                <div style={{background:C.card,borderRadius:"16px 16px 0 0",width:"100%",maxWidth:600,margin:"0 auto",padding:20,maxHeight:"85vh",overflowY:"auto"}}>
+              <div style={{position:"fixed",inset:0,background:"#000b",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,touchAction:"none",overflow:"hidden",padding:24}} onClick={e=>{if(e.target===e.currentTarget){setShowAddDeck(false);setNewDeck({name:"",colors:[],notes:"",url:"",image:"",parentId:""}); }}}>
+                <div style={{background:C.card,borderRadius:16,width:"100%",maxWidth:480,padding:20,maxHeight:"85vh",overflowY:"auto"}}>
                   <div style={{fontWeight:800,fontSize:15,marginBottom:16}}>デッキを追加</div>
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
                     <div><div style={{fontSize:11,color:C.muted,marginBottom:5}}>デッキ名 *</div><input value={newDeck.name} onChange={e=>setNewDeck(d=>({...d,name:e.target.value}))} placeholder="例: アグロ赤" style={inputStyle} autoFocus/></div>
@@ -2018,10 +2025,14 @@ export default function App() {
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
               <div style={{fontWeight:800,fontSize:14,marginBottom:12}}>対戦種類の管理</div>
               <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:4}}>
-                {matchTypes.map(t=>(
-                  <div key={t} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px"}}>
-                    <span style={{fontSize:14,color:C.text}}>{t}</span>
-                    {!DEFAULT_MATCH_TYPES.includes(t)?<button onClick={()=>deleteMatchType(t)} style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:14,padding:"2px 6px"}}>✕</button>:<span style={{fontSize:11,color:C.muted}}>デフォルト</span>}
+                {matchTypes.map((t,i)=>(
+                  <div key={t} style={{display:"flex",alignItems:"center",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"8px 12px"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:2,flexShrink:0}}>
+                      <button onClick={()=>moveMatchType(t,-1)} disabled={i===0} style={{background:"transparent",border:"none",color:i===0?C.border:C.muted,cursor:i===0?"default":"pointer",fontSize:12,padding:"1px 4px",lineHeight:1}}>▲</button>
+                      <button onClick={()=>moveMatchType(t,1)} disabled={i===matchTypes.length-1} style={{background:"transparent",border:"none",color:i===matchTypes.length-1?C.border:C.muted,cursor:i===matchTypes.length-1?"default":"pointer",fontSize:12,padding:"1px 4px",lineHeight:1}}>▼</button>
+                    </div>
+                    <span style={{fontSize:14,color:C.text,flex:1}}>{t}</span>
+                    {!DEFAULT_MATCH_TYPES.includes(t)?<button onClick={()=>deleteMatchType(t)} style={{background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:14,padding:"2px 6px"}}>✕</button>:<span style={{fontSize:11,color:C.muted}}>初期</span>}
                   </div>
                 ))}
               </div>
