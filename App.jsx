@@ -3,6 +3,10 @@ const _pixelFontLink = document.createElement("link");
 _pixelFontLink.rel = "stylesheet";
 _pixelFontLink.href = "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap";
 document.head.appendChild(_pixelFontLink);
+// iOSのinputズームを防ぐ
+const _vp = document.querySelector("meta[name=viewport]");
+if (_vp) _vp.content = "width=device-width, initial-scale=1, maximum-scale=1";
+else { const m=document.createElement("meta"); m.name="viewport"; m.content="width=device-width, initial-scale=1, maximum-scale=1"; document.head.appendChild(m); }
 
 // ── i18n ──────────────────────────────────────────────
 const LANG_KEY = "digimon_lang";
@@ -53,7 +57,7 @@ const TRANSLATIONS = {
     loadMore: (n) => `さらに読み込む（残り${n}件）`,
     // filter bar
     period: "期間（プリセット）", periodCustom: "期間（個別指定）",
-    periodAll: "全期間", periodToday: "今日", periodWeek: "今週",
+    periodAll: "全期間", allItems: "すべて", periodToday: "今日", periodWeek: "今週",
     periodMonth: "今月", periodYear: "今年",
     myDeckFilter: "使用デッキ", oppDeckFilter: "相手デッキ",
     oppPersonFilter: "対戦相手", matchTypeFilter: "対戦種類（複数選択可）",
@@ -209,7 +213,7 @@ const TRANSLATIONS = {
     noRecordsHint: "Tap \"Add Match\" to log your first battle",
     loadMore: (n) => `Load more (${n} remaining)`,
     period: "Period (Preset)", periodCustom: "Period (Custom)",
-    periodAll: "All", periodToday: "Today", periodWeek: "This Week",
+    periodAll: "All", allItems: "All", periodToday: "Today", periodWeek: "This Week",
     periodMonth: "This Month", periodYear: "This Year",
     myDeckFilter: "My Deck", oppDeckFilter: "Opponent Deck",
     oppPersonFilter: "Opponent Player", matchTypeFilter: "Match Type (multi)",
@@ -313,32 +317,452 @@ const TRANSLATIONS = {
     saveEdit: "Save",
     deleteImageConfirm: (n) => `Delete this image?\nThis will affect ${n} match record(s).`,
     languageLabel: "言語 / Language",
+  },
+  ko: {
+    tabMatches: "대전 기록", tabDecks: "덱 관리", tabStats: "통계", tabSettings: "설정",
+    memoryGauge: "메모리 게이지",
+    recordMatch: "대전 기록하기", editMatch: "대전 편집",
+    seriesLabel: (n) => `연속 기록 ${n}`,
+    save: "저장", saveAndNext: "저장 후 계속", cancel: "취소", delete: "삭제",
+    carryOver: "이전 입력 내용 가져오기",
+    fDate: "날짜", fMatchType: "대전 종류", fDeck: "사용 덱", fOpponent: "상대 덱",
+    fOpponentPerson: "상대방", fTurn: "선/후공", fResult: "승패",
+    fEndTurn: "종료 턴", fLucky: "운", fNotes: "메모",
+    fDeckUrl: "덱 URL", fDeckImage: "덱 이미지", fImage: "대전 이미지",
+    first: "⚡ 선공", second: "🌙 후공",
+    win: "🏆 승", lose: "💀 패", draw: "🤝 무",
+    winShort: "승", loseShort: "패", drawShort: "무",
+    firstShort: "선", secondShort: "후",
+    lucky: "🍀 운 좋음", unlucky: "💀 운 나쁨",
+    turn: "턴", clearTurn: "초기화",
+    fromList: "목록에서", directInput: "직접 입력",
+    selectPlaceholder: "선택하세요",
+    selectLabel: "선택",
+    deckNamePlaceholder: "덱 이름",
+    addNew: "+ 추가", addPlaceholder: "새 종류 입력...",
+    tapAddDeckImage: "탭하여 덱 이미지 추가",
+    tapAddBattleImage: "탭하여 대전 이미지 추가",
+    savedDeckImage: "✓ 덱에 저장된 이미지",
+    removeImage: "삭제",
+    addRecord: "+ 기록 추가",
+    filter: "필터",
+    resetFilter: "초기화",
+    showNotes: "메모", bulkSelect: "선택",
+    cancelBulk: "취소", bulkDelete: "삭제",
+    noRecords: "기록이 없습니다",
+    noRecordsHint: "\"기록 추가\"를 눌러 대전을 기록하세요",
+    loadMore: (n) => `더 보기 (${n}건 남음)`,
+    period: "기간 (프리셋)", periodCustom: "기간 (직접 지정)",
+    periodAll: "전체", allItems: "전체", periodToday: "오늘", periodWeek: "이번 주",
+    periodMonth: "이번 달", periodYear: "올해",
+    myDeckFilter: "사용 덱", oppDeckFilter: "상대 덱",
+    oppPersonFilter: "상대방", matchTypeFilter: "대전 종류 (복수 선택)",
+    turnFilter: "선/후공", resultFilter: "승패", flagFilter: "플래그",
+    noData: "데이터 없음", notSet: "미설정",
+    noDecksRegistered: "등록된 덱이 없습니다",
+    noOpponents: "등록된 상대가 없습니다",
+    myDecks: "내 덱", oppDecks: "상대 덱",
+    addDeck: "+ 덱 추가",
+    addOpp: "+ 상대 덱 추가", cancelAddOpp: "✕ 취소",
+    activeOnly: "사용 중만",
+    merge: "합치기",
+    statsToggle: "전적",
+    sortRecent: "최근 사용순", sortNewest: "최신 등록순",
+    sortName: "이름순", sortWinRate: "승률순",
+    sortMost: "대전 수순", sortRecentBattle: "최근 대전순",
+    searchPlaceholder: "검색",
+    noDeckRegistered: "등록된 덱이 없습니다",
+    noOppRegistered: "등록된 상대 덱이 없습니다",
+    deckCount: (n) => `${n}건`,
+    winLabel: "승", loseLabel: "패", battleCount: (n) => `${n}전`,
+    battleStats: (t, w, l) => `${t}전 ${w}승 ${l}패`,
+    activeSwitch: "사용 중",
+    imageLimit: "저장 한도",
+    unlimited: "무제한",
+    deckImageCount: (n) => `덱 이미지 (${n}장)`,
+    deckNameLabel: "덱 이름", colorLabel: "컬러",
+    parentDeckLabel: "부모 덱 (파생 원본)", noneOption: "없음",
+    deckUrlLabel: "덱 URL", memoLabel: "메모",
+    recordLabel: "전적",
+    saveButton: "저장", deleteButton: "덱 삭제",
+    setAsCurrent: "메인", deleteImage: "삭제",
+    mergeOpponents: "덱 이름 합치기",
+    mergeOppHint: "2개 이상 선택 후 통합 이름 입력",
+    mergeNamePlaceholder: "통합 후 이름",
+    mergeDecks: "덱 통합", mergeBase: "기준 덱 선택",
+    mergeBaseHint: "이미지·설정의 기준이 될 덱을 선택하세요",
+    mergeNameStep: "통합 후 이름 입력",
+    mergeBaseLabel: (name) => `기준: ${name}`,
+    mergeNamePlaceholder2: "통합 후 덱 이름",
+    back: "뒤로", next: "다음", execute: "통합",
+    savedImages: (n) => `이미지 ${n}장 저장 중`,
+    deckNameRequired: "덱 이름 *",
+    oppNameRequired: "덱 이름 *",
+    addButton: "추가",
+    statOverall: "종합 전적", statWinTrend: "승률 추이",
+    statTurns: "선/후공별 승률", statDeckBar: "덱별 전적",
+    statDeckPie: "사용 덱 분포", statOppBar: "상대 덱별 전적",
+    statOppPie: "상대 덱 분포",
+    showStat: "표시", hideStat: "숨기기",
+    noStatData: "데이터가 없습니다",
+    battles: "대전", winRate: "승률", winRateLabel: "승률 추이",
+    firstWR: "선공 승률", secondWR: "후공 승률",
+    editButton: "편집",
+    dateLabel: "날짜", matchTypeLabel: "대전 종류",
+    myDeckLabel: "사용 덱", oppPersonLabel: "상대방",
+    endTurnLabel: "종료 턴", deckUrlLabel2: "덱 URL",
+    notesLabel: "메모", deckImageLabel: "덱 이미지", battleImageLabel: "대전 이미지",
+    themeColor: "테마 컬러",
+    formFields: "기록 폼 표시 항목",
+    formFieldsHint: "끈 항목은 기록 입력 화면에서 숨겨집니다",
+    statSettings: "통계 화면 표시 설정",
+    statSettingsWarn: "⚠️ 체크 해제 시 통계 섹션이 완전히 숨겨집니다",
+    oppManagement: "상대방 관리",
+    matchTypeManagement: "대전 종류 관리",
+    csvImport: "CSV 가져오기",
+    csvImportHint: "다른 앱의 CSV 파일을 가져올 수 있습니다",
+    selectCSV: "CSV 파일 선택",
+    importSuccess: "✓ 가져오기 완료",
+    importCount: (n, s, a) => `가져옴: ${n}건 / 건너뜀: ${s}건 / 자동 생성 덱: ${a}개`,
+    importReset: "다른 파일 가져오기",
+    backup: "백업 및 복원",
+    backupHint: "기기 변경 시 전체 데이터를 내보낼 수 있습니다",
+    downloadBackup: "백업 다운로드 (이미지 포함)",
+    restoreBackup: "백업에서 복원",
+    deckImageMgmt: "덱 이미지 데이터 관리",
+    deckImageMgmtHint: (n) => `총 ${n}장의 이미지를 저장 중. 불필요한 이미지를 삭제하여 용량을 절약하세요.`,
+    deleteUnused: "어느 전적에도 연결되지 않은 불필요한 이미지 일괄 삭제",
+    noImages: "이미지 없음",
+    dangerZone: "🗑️ 위험 구역",
+    dangerZoneHint: "이 작업은 취소할 수 없습니다.",
+    deleteAllImages: "🗑️ 이미지 데이터 모두 삭제",
+    deleteAll: "🗑️ 모든 데이터 삭제",
+    deleteMatchTitle: "대전을 삭제하시겠습니까?",
+    deleteMatchHint: "이 대전 기록은 완전히 삭제됩니다.",
+    deleteDeckTitle: "덱 삭제",
+    deleteDeckHint: "이 덱과 관련 데이터가 삭제됩니다. 이 작업은 취소할 수 없습니다.",
+    deleteOppTitle: "상대 덱 삭제",
+    deleteOppHint: "이 상대 덱을 삭제합니다. 관련 대전 기록의 덱 이름은 남습니다.",
+    deleteImagesTitle: "🗑️ 이미지 데이터만 삭제",
+    deleteAllTitle: "🗑️ 모든 데이터 삭제",
+    deleteAllConfirm: "대전 기록·덱·설정을 모두 삭제합니다. 이 작업은 취소할 수 없습니다.",
+    deleteImagesConfirm: "모든 이미지 데이터를 삭제합니다. 이 작업은 취소할 수 없습니다.",
+    confirmDelete: "삭제", confirmCancel: "취소",
+    loading: "데이터를 불러오는 중...",
+    landscapeMsg: "세로 방향으로 사용해 주세요",
+    saved: "저장되었습니다",
+    similarFound: (n) => `${n}개의 유사한 덱 이름을 찾았습니다`,
+    localStorageSize: "localStorage 사용량",
+    imageCount: "이미지 수",
+    saveEdit: "저장",
+    deleteImageConfirm: (n) => `이 이미지를 삭제하시겠습니까?\n${n}건의 전적 이미지 표시에 영향을 줍니다.`,
+    languageLabel: "言語 / Language",
+  },
+  zh: {
+    tabMatches: "对战记录", tabDecks: "卡组管理", tabStats: "统计", tabSettings: "设置",
+    memoryGauge: "内存仪表",
+    recordMatch: "记录对战", editMatch: "编辑对战",
+    seriesLabel: (n) => `连续记录 ${n}`,
+    save: "保存", saveAndNext: "保存并继续", cancel: "取消", delete: "删除",
+    carryOver: "沿用上次输入内容",
+    fDate: "日期", fMatchType: "对战类型", fDeck: "使用卡组", fOpponent: "对手卡组",
+    fOpponentPerson: "对手玩家", fTurn: "先后手", fResult: "胜负",
+    fEndTurn: "结束回合", fLucky: "运气", fNotes: "备注",
+    fDeckUrl: "卡组URL", fDeckImage: "卡组图片", fImage: "对战图片",
+    first: "⚡ 先手", second: "🌙 后手",
+    win: "🏆 胜", lose: "💀 败", draw: "🤝 平",
+    winShort: "胜", loseShort: "败", drawShort: "平",
+    firstShort: "先", secondShort: "后",
+    lucky: "🍀 运气好", unlucky: "💀 运气差",
+    turn: "回合", clearTurn: "清除",
+    fromList: "从列表选择", directInput: "直接输入",
+    selectPlaceholder: "请选择",
+    selectLabel: "选择",
+    deckNamePlaceholder: "卡组名称",
+    addNew: "+ 添加", addPlaceholder: "输入新类型...",
+    tapAddDeckImage: "点击添加卡组图片",
+    tapAddBattleImage: "点击添加对战图片",
+    savedDeckImage: "✓ 已保存到卡组",
+    removeImage: "删除",
+    addRecord: "+ 添加记录",
+    filter: "筛选",
+    resetFilter: "重置",
+    showNotes: "备注", bulkSelect: "批量",
+    cancelBulk: "取消", bulkDelete: "删除",
+    noRecords: "暂无记录",
+    noRecordsHint: "点击\"添加记录\"开始记录对战",
+    loadMore: (n) => `加载更多（剩余${n}条）`,
+    period: "时间段（预设）", periodCustom: "时间段（自定义）",
+    periodAll: "全部", allItems: "全部", periodToday: "今天", periodWeek: "本周",
+    periodMonth: "本月", periodYear: "今年",
+    myDeckFilter: "使用卡组", oppDeckFilter: "对手卡组",
+    oppPersonFilter: "对手玩家", matchTypeFilter: "对战类型（可多选）",
+    turnFilter: "先后手", resultFilter: "胜负", flagFilter: "标记",
+    noData: "无数据", notSet: "未设置",
+    noDecksRegistered: "暂无卡组",
+    noOpponents: "暂无对手",
+    myDecks: "我的卡组", oppDecks: "对手卡组",
+    addDeck: "+ 添加卡组",
+    addOpp: "+ 添加对手卡组", cancelAddOpp: "✕ 取消",
+    activeOnly: "仅使用中",
+    merge: "合并",
+    statsToggle: "战绩",
+    sortRecent: "最近使用", sortNewest: "最新添加",
+    sortName: "名称", sortWinRate: "胜率",
+    sortMost: "对战次数", sortRecentBattle: "最近对战",
+    searchPlaceholder: "搜索",
+    noDeckRegistered: "暂无卡组",
+    noOppRegistered: "暂无对手卡组",
+    deckCount: (n) => `${n}个`,
+    winLabel: "胜", loseLabel: "败", battleCount: (n) => `${n}场`,
+    battleStats: (t, w, l) => `${t}场 ${w}胜 ${l}败`,
+    activeSwitch: "使用中",
+    imageLimit: "保存上限",
+    unlimited: "无限制",
+    deckImageCount: (n) => `卡组图片（${n}张）`,
+    deckNameLabel: "卡组名称", colorLabel: "颜色",
+    parentDeckLabel: "父卡组（派生源）", noneOption: "无",
+    deckUrlLabel: "卡组URL", memoLabel: "备注",
+    recordLabel: "战绩",
+    saveButton: "保存", deleteButton: "删除卡组",
+    setAsCurrent: "设为主图", deleteImage: "删除",
+    mergeOpponents: "合并卡组名称",
+    mergeOppHint: "选择2个以上并输入统一名称",
+    mergeNamePlaceholder: "统一后的名称",
+    mergeDecks: "合并卡组", mergeBase: "选择基准卡组",
+    mergeBaseHint: "选择作为图片和设置基准的卡组",
+    mergeNameStep: "输入合并后的名称",
+    mergeBaseLabel: (name) => `基准：${name}`,
+    mergeNamePlaceholder2: "合并后的卡组名称",
+    back: "返回", next: "下一步", execute: "合并",
+    savedImages: (n) => `已保存${n}张图片`,
+    deckNameRequired: "卡组名称 *",
+    oppNameRequired: "卡组名称 *",
+    addButton: "添加",
+    statOverall: "总体战绩", statWinTrend: "胜率趋势",
+    statTurns: "先后手胜率", statDeckBar: "卡组战绩",
+    statDeckPie: "卡组分布", statOppBar: "对手卡组战绩",
+    statOppPie: "对手卡组分布",
+    showStat: "显示", hideStat: "隐藏",
+    noStatData: "暂无数据",
+    battles: "对战", winRate: "胜率", winRateLabel: "胜率趋势",
+    firstWR: "先手胜率", secondWR: "后手胜率",
+    editButton: "编辑",
+    dateLabel: "日期", matchTypeLabel: "对战类型",
+    myDeckLabel: "使用卡组", oppPersonLabel: "对手玩家",
+    endTurnLabel: "结束回合", deckUrlLabel2: "卡组URL",
+    notesLabel: "备注", deckImageLabel: "卡组图片", battleImageLabel: "对战图片",
+    themeColor: "主题颜色",
+    formFields: "记录表单显示项目",
+    formFieldsHint: "关闭的项目将在记录输入界面中隐藏",
+    statSettings: "统计界面显示设置",
+    statSettingsWarn: "⚠️ 取消勾选后该统计区块将完全隐藏",
+    oppManagement: "对手管理",
+    matchTypeManagement: "对战类型管理",
+    csvImport: "CSV导入",
+    csvImportHint: "可以导入其他应用的CSV文件",
+    selectCSV: "选择CSV文件",
+    importSuccess: "✓ 导入完成",
+    importCount: (n, s, a) => `导入：${n}条 / 跳过：${s}条 / 自动创建卡组：${a}个`,
+    importReset: "导入其他文件",
+    backup: "数据备份与恢复",
+    backupHint: "更换设备时可以导出全部数据",
+    downloadBackup: "下载备份（含图片）",
+    restoreBackup: "从备份恢复",
+    deckImageMgmt: "卡组图片数据管理",
+    deckImageMgmtHint: (n) => `共保存了${n}张图片。删除不需要的图片以节省空间。`,
+    deleteUnused: "批量删除未关联任何战绩的图片",
+    noImages: "无图片",
+    dangerZone: "🗑️ 危险区域",
+    dangerZoneHint: "此操作无法撤销。",
+    deleteAllImages: "🗑️ 删除所有图片数据",
+    deleteAll: "🗑️ 删除所有数据",
+    deleteMatchTitle: "删除此对战记录？",
+    deleteMatchHint: "此对战记录将被永久删除。",
+    deleteDeckTitle: "删除卡组",
+    deleteDeckHint: "此卡组及相关数据将被删除。此操作无法撤销。",
+    deleteOppTitle: "删除对手卡组",
+    deleteOppHint: "此对手卡组将被删除。相关对战记录中的卡组名称将保留。",
+    deleteImagesTitle: "🗑️ 仅删除图片数据",
+    deleteAllTitle: "🗑️ 删除所有数据",
+    deleteAllConfirm: "对战记录、卡组、设置将全部删除。此操作无法撤销。",
+    deleteImagesConfirm: "所有图片数据将被删除。此操作无法撤销。",
+    confirmDelete: "删除", confirmCancel: "取消",
+    loading: "正在加载数据...",
+    landscapeMsg: "请将设备竖向使用",
+    saved: "已保存",
+    similarFound: (n) => `找到${n}个相似的卡组名称`,
+    localStorageSize: "localStorage使用量",
+    imageCount: "图片数量",
+    saveEdit: "保存",
+    deleteImageConfirm: (n) => `删除此图片？\n将影响${n}条战绩的图片显示。`,
+    languageLabel: "言語 / Language",
+  },
+  es: {
+    tabMatches: "Partidas", tabDecks: "Mazos", tabStats: "Stats", tabSettings: "Ajustes",
+    memoryGauge: "Indicador de Memoria",
+    recordMatch: "Registrar Partida", editMatch: "Editar Partida",
+    seriesLabel: (n) => `Racha: ${n}`,
+    save: "Guardar", saveAndNext: "Guardar y continuar", cancel: "Cancelar", delete: "Eliminar",
+    carryOver: "Mantener entradas anteriores",
+    fDate: "Fecha", fMatchType: "Tipo de partida", fDeck: "Mi mazo", fOpponent: "Mazo rival",
+    fOpponentPerson: "Jugador rival", fTurn: "Turno", fResult: "Resultado",
+    fEndTurn: "Turno final", fLucky: "Suerte", fNotes: "Notas",
+    fDeckUrl: "URL del mazo", fDeckImage: "Imagen del mazo", fImage: "Imagen de partida",
+    first: "⚡ Primero", second: "🌙 Segundo",
+    win: "🏆 Victoria", lose: "💀 Derrota", draw: "🤝 Empate",
+    winShort: "V", loseShort: "D", drawShort: "E",
+    firstShort: "1º", secondShort: "2º",
+    lucky: "🍀 Con suerte", unlucky: "💀 Sin suerte",
+    turn: "Turno", clearTurn: "Limpiar",
+    fromList: "De la lista", directInput: "Escribir",
+    selectPlaceholder: "Seleccionar...",
+    selectLabel: "Seleccionar",
+    deckNamePlaceholder: "Nombre del mazo",
+    addNew: "+ Añadir", addPlaceholder: "Escribir nuevo tipo...",
+    tapAddDeckImage: "Toca para añadir imagen del mazo",
+    tapAddBattleImage: "Toca para añadir imagen de partida",
+    savedDeckImage: "✓ Guardado en el mazo",
+    removeImage: "Eliminar",
+    addRecord: "+ Añadir partida",
+    filter: "Filtrar",
+    resetFilter: "Reiniciar",
+    showNotes: "Notas", bulkSelect: "Selección",
+    cancelBulk: "Cancelar", bulkDelete: "Eliminar",
+    noRecords: "Sin registros",
+    noRecordsHint: "Pulsa \"Añadir partida\" para empezar",
+    loadMore: (n) => `Cargar más (${n} restantes)`,
+    period: "Período (preestablecido)", periodCustom: "Período (personalizado)",
+    periodAll: "Todo", allItems: "Todo", periodToday: "Hoy", periodWeek: "Esta semana",
+    periodMonth: "Este mes", periodYear: "Este año",
+    myDeckFilter: "Mi mazo", oppDeckFilter: "Mazo rival",
+    oppPersonFilter: "Jugador rival", matchTypeFilter: "Tipo de partida (múltiple)",
+    turnFilter: "Turno", resultFilter: "Resultado", flagFilter: "Marcadores",
+    noData: "Sin datos", notSet: "No definido",
+    noDecksRegistered: "No hay mazos registrados",
+    noOpponents: "No hay rivales registrados",
+    myDecks: "Mis mazos", oppDecks: "Mazos rivales",
+    addDeck: "+ Añadir mazo",
+    addOpp: "+ Añadir mazo rival", cancelAddOpp: "✕ Cancelar",
+    activeOnly: "Solo activos",
+    merge: "Fusionar",
+    statsToggle: "Estadísticas",
+    sortRecent: "Uso reciente", sortNewest: "Más nuevos",
+    sortName: "Nombre", sortWinRate: "Winrate",
+    sortMost: "Más partidas", sortRecentBattle: "Última partida",
+    searchPlaceholder: "Buscar",
+    noDeckRegistered: "No hay mazos registrados",
+    noOppRegistered: "No hay mazos rivales registrados",
+    deckCount: (n) => `${n} mazos`,
+    winLabel: "V", loseLabel: "D", battleCount: (n) => `${n} partidas`,
+    battleStats: (t, w, l) => `${t}P ${w}V ${l}D`,
+    activeSwitch: "Activo",
+    imageLimit: "Límite de imágenes",
+    unlimited: "Sin límite",
+    deckImageCount: (n) => `Imágenes del mazo (${n})`,
+    deckNameLabel: "Nombre del mazo", colorLabel: "Color",
+    parentDeckLabel: "Mazo base (derivado de)", noneOption: "Ninguno",
+    deckUrlLabel: "URL del mazo", memoLabel: "Notas",
+    recordLabel: "Registro",
+    saveButton: "Guardar", deleteButton: "Eliminar mazo",
+    setAsCurrent: "Principal", deleteImage: "Eliminar",
+    mergeOpponents: "Fusionar nombres de mazo",
+    mergeOppHint: "Selecciona 2 o más e introduce el nombre unificado",
+    mergeNamePlaceholder: "Nombre unificado",
+    mergeDecks: "Fusionar mazos", mergeBase: "Seleccionar mazo base",
+    mergeBaseHint: "Elige el mazo que servirá de base para imágenes y ajustes",
+    mergeNameStep: "Introduce el nombre fusionado",
+    mergeBaseLabel: (name) => `Base: ${name}`,
+    mergeNamePlaceholder2: "Nombre del mazo fusionado",
+    back: "Atrás", next: "Siguiente", execute: "Fusionar",
+    savedImages: (n) => `${n} imagen(es) guardada(s)`,
+    deckNameRequired: "Nombre del mazo *",
+    oppNameRequired: "Nombre del mazo *",
+    addButton: "Añadir",
+    statOverall: "Registro general", statWinTrend: "Tendencia de winrate",
+    statTurns: "Winrate por turno", statDeckBar: "Rendimiento por mazo",
+    statDeckPie: "Distribución de mazos", statOppBar: "Rendimiento vs rivales",
+    statOppPie: "Distribución de rivales",
+    showStat: "Mostrar", hideStat: "Ocultar",
+    noStatData: "Sin datos",
+    battles: "Partidas", winRate: "Winrate", winRateLabel: "Tendencia de winrate",
+    firstWR: "Winrate 1º", secondWR: "Winrate 2º",
+    editButton: "Editar",
+    dateLabel: "Fecha", matchTypeLabel: "Tipo de partida",
+    myDeckLabel: "Mi mazo", oppPersonLabel: "Jugador rival",
+    endTurnLabel: "Turno final", deckUrlLabel2: "URL del mazo",
+    notesLabel: "Notas", deckImageLabel: "Imagen del mazo", battleImageLabel: "Imagen de partida",
+    themeColor: "Color del tema",
+    formFields: "Campos del formulario",
+    formFieldsHint: "Los campos desactivados se ocultarán en el formulario",
+    statSettings: "Configuración de estadísticas",
+    statSettingsWarn: "⚠️ Desactivar ocultará completamente esa sección",
+    oppManagement: "Gestión de rivales",
+    matchTypeManagement: "Gestión de tipos de partida",
+    csvImport: "Importar CSV",
+    csvImportHint: "Importa datos de otras apps en formato CSV",
+    selectCSV: "Seleccionar archivo CSV",
+    importSuccess: "✓ Importación completada",
+    importCount: (n, s, a) => `Importados: ${n} / Omitidos: ${s} / Mazos creados: ${a}`,
+    importReset: "Importar otro archivo",
+    backup: "Copia de seguridad y restauración",
+    backupHint: "Exporta todos tus datos para guardarlos",
+    downloadBackup: "Descargar copia de seguridad (con imágenes)",
+    restoreBackup: "Restaurar desde copia de seguridad",
+    deckImageMgmt: "Gestión de imágenes de mazo",
+    deckImageMgmtHint: (n) => `${n} imagen(es) almacenada(s). Elimina las no usadas para ahorrar espacio.`,
+    deleteUnused: "Eliminar imágenes no vinculadas a ninguna partida",
+    noImages: "Sin imágenes",
+    dangerZone: "🗑️ Zona de peligro",
+    dangerZoneHint: "Estas acciones no se pueden deshacer.",
+    deleteAllImages: "🗑️ Eliminar todos los datos de imagen",
+    deleteAll: "🗑️ Eliminar todos los datos",
+    deleteMatchTitle: "¿Eliminar esta partida?",
+    deleteMatchHint: "Este registro de partida se eliminará permanentemente.",
+    deleteDeckTitle: "Eliminar mazo",
+    deleteDeckHint: "Este mazo y sus datos relacionados serán eliminados. No se puede deshacer.",
+    deleteOppTitle: "Eliminar mazo rival",
+    deleteOppHint: "Este rival será eliminado. Los registros de partida relacionados permanecerán.",
+    deleteImagesTitle: "🗑️ Eliminar solo datos de imagen",
+    deleteAllTitle: "🗑️ Eliminar todos los datos",
+    deleteAllConfirm: "Todas las partidas, mazos y ajustes serán eliminados. No se puede deshacer.",
+    deleteImagesConfirm: "Todos los datos de imagen serán eliminados. No se puede deshacer.",
+    confirmDelete: "Eliminar", confirmCancel: "Cancelar",
+    loading: "Cargando datos...",
+    landscapeMsg: "Por favor, usa el dispositivo en modo vertical",
+    saved: "¡Guardado!",
+    similarFound: (n) => `Se encontraron ${n} nombres de mazo similares`,
+    localStorageSize: "Uso de localStorage",
+    imageCount: "Número de imágenes",
+    saveEdit: "Guardar",
+    deleteImageConfirm: (n) => `¿Eliminar esta imagen?\nAfectará a ${n} registro(s) de partida.`,
+    languageLabel: "言語 / Language",
   }
 };
 
 // ── Themes / Colors ────────────────────────────────────
 const THEMES = {
-  red:    { label:"赤", labelEn:"Red",    bg:"#0f0a0a", card:"#1c1010", border:"#3d1a1a", accent:"#ff4d6d", accentDim:"#992940", surface:"#160c0c", text:"#f8e8e8", muted:"#886677", win:"#ff4d6d", lose:"#4488ff", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
-  blue:   { label:"青", labelEn:"Blue",   bg:"#0a0e1a", card:"#111827", border:"#1e2d4a", accent:"#00d4ff", accentDim:"#007a99", surface:"#0d1520", text:"#e8f4f8", muted:"#6688aa", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
-  yellow: { label:"黄", labelEn:"Yellow", bg:"#0f0e08", card:"#1c1a0e", border:"#3d3510", accent:"#facc15", accentDim:"#997a00", surface:"#161408", text:"#f8f4e8", muted:"#887755", win:"#facc15", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
-  green:  { label:"緑", labelEn:"Green",  bg:"#080f0a", card:"#0f1c12", border:"#1a3d20", accent:"#00e676", accentDim:"#008844", surface:"#0a1610", text:"#e8f8ec", muted:"#558866", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
-  black:  { label:"黒", labelEn:"Black",  bg:"#080808", card:"#111111", border:"#2a2a2a", accent:"#aaaaaa", accentDim:"#555555", surface:"#0e0e0e", text:"#eeeeee", muted:"#666666", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
-  purple: { label:"紫", labelEn:"Purple", bg:"#0d0a18", card:"#160f2a", border:"#2e1a5a", accent:"#a78bfa", accentDim:"#5533aa", surface:"#110d20", text:"#f0eaff", muted:"#7755aa", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
-  white:  { label:"白", labelEn:"White",  bg:"#f0f4f8", card:"#ffffff", border:"#d1dce8", accent:"#0077cc", accentDim:"#004488", surface:"#e8edf2", text:"#1a2233", muted:"#8899aa", win:"#00aa44", lose:"#ee3333", draw:"#888888", first:"#ff7700", second:"#0077cc" },
+  red:    { label:"赤", labelEn:"Red",    labelKo:"빨강", labelZh:"红", labelEs:"Rojo",    bg:"#0f0a0a", card:"#1c1010", border:"#3d1a1a", accent:"#ff4d6d", accentDim:"#992940", surface:"#160c0c", text:"#f8e8e8", muted:"#886677", win:"#ff4d6d", lose:"#4488ff", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
+  blue:   { label:"青", labelEn:"Blue",   labelKo:"파랑", labelZh:"蓝", labelEs:"Azul",    bg:"#0a0e1a", card:"#111827", border:"#1e2d4a", accent:"#00d4ff", accentDim:"#007a99", surface:"#0d1520", text:"#e8f4f8", muted:"#6688aa", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
+  yellow: { label:"黄", labelEn:"Yellow", labelKo:"노랑", labelZh:"黄", labelEs:"Amarillo", bg:"#0f0e08", card:"#1c1a0e", border:"#3d3510", accent:"#facc15", accentDim:"#997a00", surface:"#161408", text:"#f8f4e8", muted:"#887755", win:"#facc15", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
+  green:  { label:"緑", labelEn:"Green",  labelKo:"초록", labelZh:"绿", labelEs:"Verde",   bg:"#080f0a", card:"#0f1c12", border:"#1a3d20", accent:"#00e676", accentDim:"#008844", surface:"#0a1610", text:"#e8f8ec", muted:"#558866", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
+  black:  { label:"黒", labelEn:"Black",  labelKo:"검정", labelZh:"黑", labelEs:"Negro",   bg:"#080808", card:"#111111", border:"#2a2a2a", accent:"#aaaaaa", accentDim:"#555555", surface:"#0e0e0e", text:"#eeeeee", muted:"#666666", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
+  purple: { label:"紫", labelEn:"Purple", labelKo:"보라", labelZh:"紫", labelEs:"Morado",  bg:"#0d0a18", card:"#160f2a", border:"#2e1a5a", accent:"#a78bfa", accentDim:"#5533aa", surface:"#110d20", text:"#f0eaff", muted:"#7755aa", win:"#00e676", lose:"#ff4d6d", draw:"#aaaaaa", first:"#ff9944", second:"#44aaff" },
+  white:  { label:"白", labelEn:"White",  labelKo:"흰색", labelZh:"白", labelEs:"Blanco",  bg:"#f0f4f8", card:"#ffffff", border:"#d1dce8", accent:"#0077cc", accentDim:"#004488", surface:"#e8edf2", text:"#1a2233", muted:"#8899aa", win:"#00aa44", lose:"#ee3333", draw:"#888888", first:"#ff7700", second:"#0077cc" },
 };
 function getTheme(id) { return THEMES[id] || THEMES.blue; }
 const globalC = {...THEMES.blue};
 const C = globalC;
 
 const DECK_COLORS = [
-  { id:"red",     label:"赤", labelEn:"Red",     hex:"#ef4444" },
-  { id:"blue",    label:"青", labelEn:"Blue",    hex:"#3b82f6" },
-  { id:"green",   label:"緑", labelEn:"Green",   hex:"#22c55e" },
-  { id:"yellow",  label:"黄", labelEn:"Yellow",  hex:"#eab308" },
-  { id:"purple",  label:"紫", labelEn:"Purple",  hex:"#a855f7" },
-  { id:"black",   label:"黒", labelEn:"Black",   hex:"#6b7280" },
-  { id:"white",   label:"白", labelEn:"White",   hex:"#e5e7eb" },
-  { id:"rainbow", label:"虹", labelEn:"Rainbow", hex:null },
+  { id:"red",     label:"赤", labelEn:"Red",     labelKo:"빨강", labelZh:"红", labelEs:"Rojo",    hex:"#ef4444" },
+  { id:"blue",    label:"青", labelEn:"Blue",    labelKo:"파랑", labelZh:"蓝", labelEs:"Azul",    hex:"#3b82f6" },
+  { id:"green",   label:"緑", labelEn:"Green",   labelKo:"초록", labelZh:"绿", labelEs:"Verde",   hex:"#22c55e" },
+  { id:"yellow",  label:"黄", labelEn:"Yellow",  labelKo:"노랑", labelZh:"黄", labelEs:"Amarillo",hex:"#eab308" },
+  { id:"purple",  label:"紫", labelEn:"Purple",  labelKo:"보라", labelZh:"紫", labelEs:"Morado",  hex:"#a855f7" },
+  { id:"black",   label:"黒", labelEn:"Black",   labelKo:"검정", labelZh:"黑", labelEs:"Negro",   hex:"#6b7280" },
+  { id:"white",   label:"白", labelEn:"White",   labelKo:"흰색", labelZh:"白", labelEs:"Blanco",  hex:"#e5e7eb" },
+  { id:"rainbow", label:"虹", labelEn:"Rainbow", labelKo:"무지개",labelZh:"彩", labelEs:"Arcoíris",hex:null },
 ];
 
 // ── Storage ────────────────────────────────────────────
@@ -350,13 +774,35 @@ const IDB_VERSION = 1;
 const DEFAULT_MATCH_TYPES_JA = ["テイマーバトル","エボリューションカップ","アルティメットカップ","超テイマーバトル","フレンドリーバトル","店舗予選","フリー"];
 const DEFAULT_MATCH_TYPES_EN = ["Tamer Battle","Evolution Cup","Ultimate Cup","Super Tamer Battle","Friendly Battle","Store Qualifier","Casual"];
 
-// 表示用変換（データは日本語のまま、英語UIのときだけ英訳して表示）
-const MATCH_TYPE_JA_TO_EN = {};
-DEFAULT_MATCH_TYPES_JA.forEach((ja, i) => { MATCH_TYPE_JA_TO_EN[ja] = DEFAULT_MATCH_TYPES_EN[i]; });
+const DEFAULT_MATCH_TYPES_KO = ["테이머 배틀","에볼루션 컵","얼티밋 컵","슈퍼 테이머 배틀","프렌들리 배틀","스토어 예선","프리 배틀"];
+const DEFAULT_MATCH_TYPES_ZH = ["训练师对战","进化杯","究极杯","超级训练师对战","友谊赛","门店预选赛","自由对战"];
+const DEFAULT_MATCH_TYPES_ES = ["Batalla de Entrenador","Copa Evolución","Copa Ultimate","Super Batalla de Entrenador","Partida Amistosa","Clasificatoria de Tienda","Casual"];
+
+// 表示用変換マップ（データは日本語保存、表示時のみ変換）
+const MATCH_TYPE_MAP = {};
+DEFAULT_MATCH_TYPES_JA.forEach((ja, i) => {
+  MATCH_TYPE_MAP[ja] = { en: DEFAULT_MATCH_TYPES_EN[i], ko: DEFAULT_MATCH_TYPES_KO[i], zh: DEFAULT_MATCH_TYPES_ZH[i], es: DEFAULT_MATCH_TYPES_ES[i] };
+});
 function displayMatchType(type, lang) {
   if (!type) return type;
-  if (lang === "en" && MATCH_TYPE_JA_TO_EN[type]) return MATCH_TYPE_JA_TO_EN[type];
+  if (lang !== "ja" && MATCH_TYPE_MAP[type]?.[lang]) return MATCH_TYPE_MAP[type][lang];
   return type;
+}
+
+// 言語に合わせたラベルを取得
+function getThemeLabel(theme, lang) {
+  if (lang === "en") return theme.labelEn;
+  if (lang === "ko") return theme.labelKo;
+  if (lang === "zh") return theme.labelZh;
+  if (lang === "es") return theme.labelEs;
+  return theme.label;
+}
+function getDeckColorLabel(color, lang) {
+  if (lang === "en") return color.labelEn;
+  if (lang === "ko") return color.labelKo;
+  if (lang === "zh") return color.labelZh;
+  if (lang === "es") return color.labelEs;
+  return color.label;
 }
 
 const FORM_FIELDS_KEYS = [
@@ -1089,7 +1535,7 @@ function ColorPicker({colors, onChange, lang}) {
       {DECK_COLORS.map(c=>{
         const sel=colors.includes(c.id), isRainbow=c.id==="rainbow";
         const toggle=()=>{ if(isRainbow){onChange(sel?[]:["rainbow"]);}else{const w=colors.filter(x=>x!=="rainbow"); onChange(sel?w.filter(x=>x!==c.id):[...w,c.id]);} };
-        const label = lang==="en" ? c.labelEn : c.label;
+        const label = getDeckColorLabel(c, lang);
         return <button key={c.id} onClick={toggle} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:20,border:`1.5px solid ${sel?c.hex||C.accent:C.border}`,background:sel?(c.hex||C.accent)+"22":"transparent",color:sel?c.hex||C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:sel?700:400}}>
           {isRainbow?<div style={{width:11,height:11,borderRadius:"50%",background:"linear-gradient(135deg,#ef4444,#eab308,#22c55e,#3b82f6,#a855f7)"}}/>:<div style={{width:10,height:10,borderRadius:"50%",background:c.hex}}/>}
           {label}
@@ -1260,14 +1706,19 @@ function FilterBarTop({ activeFilters, open, setOpen, onReset, t }) {
   );
 }
 
-function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, setF, inputStyle, t, lang }) {
+function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, setF, inputStyle, t, lang, formFields={} }) {
+  const show = key => formFields[key] !== false;
   const toggleArr = (key, val) => setF({ [key]: flt[key].includes(val) ? flt[key].filter(x=>x!==val) : [...flt[key], val] });
   const [openDeckList, setOpenDeckList] = useState(false);
   const [openOppList, setOpenOppList] = useState(false);
+  const [deckSearch, setDeckSearch] = useState("");
+  const [oppSearch, setOppSearch] = useState("");
   const chip = (active) => ({ padding:"5px 11px", borderRadius:20, fontSize:12, cursor:"pointer", border:`1px solid ${active?C.accent:C.border}`, background:active?C.accent+"22":"transparent", color:active?C.accent:C.muted });
   const listRow = (active) => ({ padding:"10px 14px", cursor:"pointer", fontSize:14, color:active?C.accent:C.text, background:active?C.accent+"11":"transparent" });
-  const deckLabel = flt.decks.length>0 ? [...decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name),(flt.decks.includes("__no_deck__")?[t.noData]:[])].flat().join("・") : t.periodAll;
-  const oppLabel = flt.opponents.length>0 ? flt.opponents.join("・") : t.periodAll;
+  const deckLabel = flt.decks.length>0 ? [...decks.filter(d=>flt.decks.includes(d.id)).map(d=>d.name),(flt.decks.includes("__no_deck__")?[t.noData]:[])].flat().join("・") : t.allItems;
+  const oppLabel = flt.opponents.length>0 ? flt.opponents.join("・") : t.allItems;
+  const filteredDecks = deckSearch.trim() ? decks.filter(d=>d.name.toLowerCase().includes(deckSearch.toLowerCase())) : decks;
+  const filteredOpps = oppSearch.trim() ? (allOpponentNames||[]).filter(n=>n.toLowerCase().includes(oppSearch.toLowerCase())) : (allOpponentNames||[]);
   return (
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:12,marginTop:4,display:"flex",flexDirection:"column",gap:14}}>
       <div>
@@ -1293,10 +1744,16 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
           <span style={{fontSize:13,color:flt.decks.length>0?C.text:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{deckLabel}</span>
           <span style={{color:C.muted,fontSize:11,marginLeft:6,flexShrink:0}}>{openDeckList?"▲":"▼"}</span>
         </div>
-        {openDeckList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,zIndex:100,maxHeight:200,overflowY:"auto"}}>
-          {decks.length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>{t.noDecksRegistered}</div>
-          :<>{decks.map(d=>{const sel=flt.decks.includes(d.id);return <div key={d.id} onMouseDown={()=>toggleArr("decks",d.id)} style={listRow(sel)}>{d.name}</div>;})}
-          <div onMouseDown={()=>toggleArr("decks","__no_deck__")} style={listRow(flt.decks.includes("__no_deck__"))}>{t.noData}</div></>}
+        {openDeckList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,zIndex:100}}>
+          <div style={{padding:"8px 10px",borderBottom:`1px solid ${C.border}`}}>
+            <input value={deckSearch} onChange={e=>setDeckSearch(e.target.value)} placeholder={t.searchPlaceholder} autoFocus
+              style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,padding:"6px 10px",fontSize:16,boxSizing:"border-box"}}/>
+          </div>
+          <div style={{maxHeight:180,overflowY:"auto"}}>
+            {filteredDecks.length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>{t.noDecksRegistered}</div>
+            :<>{filteredDecks.map(d=>{const sel=flt.decks.includes(d.id);return <div key={d.id} onMouseDown={()=>toggleArr("decks",d.id)} style={listRow(sel)}>{d.name}</div>;})}
+            {!deckSearch&&<div onMouseDown={()=>toggleArr("decks","__no_deck__")} style={listRow(flt.decks.includes("__no_deck__"))}>{t.noData}</div>}</>}
+          </div>
         </div>}
       </div>
       <div style={{position:"relative"}}>
@@ -1305,25 +1762,31 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
           <span style={{fontSize:13,color:flt.opponents.length>0?C.text:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{oppLabel}</span>
           <span style={{color:C.muted,fontSize:11,marginLeft:6,flexShrink:0}}>{openOppList?"▲":"▼"}</span>
         </div>
-        {openOppList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,zIndex:100,maxHeight:200,overflowY:"auto"}}>
-          {(allOpponentNames||[]).length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>{t.noOpponents}</div>
-          :(allOpponentNames||[]).map(n=>{const sel=flt.opponents.includes(n);return <div key={n} onMouseDown={()=>toggleArr("opponents",n)} style={listRow(sel)}>{n}</div>;})}
+        {openOppList&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,zIndex:100}}>
+          <div style={{padding:"8px 10px",borderBottom:`1px solid ${C.border}`}}>
+            <input value={oppSearch} onChange={e=>setOppSearch(e.target.value)} placeholder={t.searchPlaceholder} autoFocus
+              style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,padding:"6px 10px",fontSize:16,boxSizing:"border-box"}}/>
+          </div>
+          <div style={{maxHeight:180,overflowY:"auto"}}>
+            {filteredOpps.length===0?<div style={{padding:"12px 14px",fontSize:13,color:C.muted}}>{t.noOpponents}</div>
+            :filteredOpps.map(n=>{const sel=flt.opponents.includes(n);return <div key={n} onMouseDown={()=>toggleArr("opponents",n)} style={listRow(sel)}>{n}</div>;})}
+          </div>
         </div>}
       </div>
-      <div>
+      {show("matchType")&&<div>
         <div style={{fontSize:11,color:C.muted,marginBottom:6}}>{t.matchTypeFilter}</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
           {matchTypes.map(tx=><button key={tx} onClick={()=>toggleArr("matchTypes",tx)} style={chip(flt.matchTypes.includes(tx))}>{displayMatchType(tx,lang)}</button>)}
         </div>
-      </div>
-      <div>
+      </div>}
+      {show("turn")&&<div>
         <div style={{fontSize:11,color:C.muted,marginBottom:6}}>{t.turnFilter}</div>
         <div style={{display:"flex",gap:5}}>
           {[["first",t.first],["second",t.second],["",t.notSet]].map(([v,l])=>(
             <button key={v} onClick={()=>toggleArr("turns",v)} style={chip(flt.turns.includes(v))}>{l}</button>
           ))}
         </div>
-      </div>
+      </div>}
       <div>
         <div style={{fontSize:11,color:C.muted,marginBottom:6}}>{t.resultFilter}</div>
         <div style={{display:"flex",gap:5}}>
@@ -1332,13 +1795,13 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
           ))}
         </div>
       </div>
-      <div>
+      {show("lucky")&&<div>
         <div style={{fontSize:11,color:C.muted,marginBottom:6}}>{t.flagFilter}</div>
         <div style={{display:"flex",gap:5}}>
           <button onClick={()=>setF({lucky:!flt.lucky})} style={chip(flt.lucky)}>{t.lucky}</button>
           <button onClick={()=>setF({unlucky:!flt.unlucky})} style={chip(flt.unlucky)}>{t.unlucky}</button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -1699,6 +2162,59 @@ export default function App() {
     return()=>{document.head.removeChild(style);};
   },[]);
 
+  // ── Computed values ───────────────────────────────
+  const getDeck = id => st.decks.find(d=>d.id===id);
+  const applyFilters = matches => {
+    const now=new Date();
+    return matches.filter(m=>{
+      if(flt.decks.length>0){ const hasNoDeck=flt.decks.includes("__no_deck__"); const deckIds=flt.decks.filter(x=>x!=="__no_deck__"); if(!(deckIds.includes(m.deckId)||(hasNoDeck&&!m.deckId))) return false; }
+      if(flt.opponents.length>0&&!flt.opponents.includes(m.opponent)) return false;
+      if(flt.matchTypes.length>0&&!flt.matchTypes.includes(m.matchType||"")) return false;
+      if(flt.periodPreset!=="all"&&flt.periodPreset!=="custom"){
+        const d=new Date(m.date);
+        if(flt.periodPreset==="today"&&d.toDateString()!==now.toDateString()) return false;
+        if(flt.periodPreset==="week"){const ago=new Date(now);ago.setDate(now.getDate()-7);if(d<ago) return false;}
+        if(flt.periodPreset==="month"&&(d.getFullYear()!==now.getFullYear()||d.getMonth()!==now.getMonth())) return false;
+        if(flt.periodPreset==="year"&&d.getFullYear()!==now.getFullYear()) return false;
+      }
+      if(flt.dateFrom&&m.date<flt.dateFrom) return false;
+      if(flt.dateTo&&m.date>flt.dateTo) return false;
+      if(flt.opponentPersons&&flt.opponentPersons.length>0&&!flt.opponentPersons.includes(m.opponentPerson||"")) return false;
+      if(flt.turns.length>0&&!flt.turns.includes(m.turn||"")) return false;
+      if(flt.results.length>0&&!flt.results.includes(m.result||"")) return false;
+      if(flt.lucky&&!m.lucky) return false;
+      if(flt.unlucky&&!m.unlucky) return false;
+      return true;
+    });
+  };
+  const activeFilters = flt.decks.length+flt.opponents.length+(flt.opponentPersons||[]).length+flt.matchTypes.length+(flt.periodPreset!=="all"?1:0)+((flt.dateFrom||flt.dateTo)?1:0)+flt.turns.length+flt.results.length+(flt.lucky?1:0)+(flt.unlucky?1:0);
+  const filtered = applyFilters(st.matches);
+  const sorted = [...filtered].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const wins=filtered.filter(m=>m.result==="win").length, loses=filtered.filter(m=>m.result==="lose").length, draws=filtered.filter(m=>m.result==="draw").length, total=filtered.length;
+  const wr=total>0?Math.round(wins/total*100):0;
+  const fm=filtered.filter(m=>m.turn==="first"), sm=filtered.filter(m=>m.turn==="second");
+  const fwr=fm.length>0?Math.round(fm.filter(m=>m.result==="win").length/fm.length*100):null;
+  const swr=sm.length>0?Math.round(sm.filter(m=>m.result==="win").length/sm.length*100):null;
+  const deckStats=st.decks.map(deck=>{
+    const ms=filtered.filter(m=>m.deckId===deck.id);
+    const w=ms.filter(m=>m.result==="win").length,l=ms.filter(m=>m.result==="lose").length,dr=ms.length-w-l;
+    return {...deck,total:ms.length,wins:w,loses:l,draws:dr,winRate:ms.length>0?Math.round(w/ms.length*100):0};
+  });
+  const opponentStats=Array.from(new Set(filtered.map(m=>m.opponent).filter(Boolean))).sort().map(name=>{
+    const ms=filtered.filter(m=>m.opponent===name);
+    const w=ms.filter(m=>m.result==="win").length,l=ms.filter(m=>m.result==="lose").length,dr=ms.length-w-l;
+    return {name,total:ms.length,wins:w,loses:l,draws:dr,winRate:ms.length>0?Math.round(w/ms.length*100):0};
+  });
+  const toggleBulkSelect = id => setBulkSelected(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+  const executeBulkDelete = () => { setSt(s=>({...s,matches:s.matches.filter(m=>!bulkSelected.includes(m.id))})); setBulkSelected([]); setBulkMode(false); };
+  const cancelBulkMode = () => { setBulkMode(false); setBulkSelected([]); };
+  const inputStyle={background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,padding:"10px 12px",fontSize:14,width:"100%",boxSizing:"border-box"};
+  const STAT_SECTIONS = [
+    ["overall",t.statOverall], ["winTrend",t.statWinTrend], ["turns",t.statTurns],
+    ["deckBar",t.statDeckBar], ["deckPie",t.statDeckPie],
+    ["oppBar",t.statOppBar], ["oppPie",t.statOppPie],
+  ];
+
   const getSortedDecks = () => {
     const now=Date.now();
     const score=id=>st.matches.reduce((s,m)=>{if(m.deckId!==id)return s;const age=(now-new Date(m.createdAt))/86400000;return s+Math.exp(-age/30);},0);
@@ -1758,69 +2274,13 @@ export default function App() {
     </div>
   );
 
-  // ── Computed values ───────────────────────────────
-  const getDeck = id => st.decks.find(d=>d.id===id);
-  const applyFilters = matches => {
-    const now=new Date();
-    return matches.filter(m=>{
-      if(flt.decks.length>0){ const hasNoDeck=flt.decks.includes("__no_deck__"); const deckIds=flt.decks.filter(x=>x!=="__no_deck__"); if(!(deckIds.includes(m.deckId)||(hasNoDeck&&!m.deckId))) return false; }
-      if(flt.opponents.length>0&&!flt.opponents.includes(m.opponent)) return false;
-      if(flt.matchTypes.length>0&&!flt.matchTypes.includes(m.matchType||"")) return false;
-      if(flt.periodPreset!=="all"&&flt.periodPreset!=="custom"){
-        const d=new Date(m.date);
-        if(flt.periodPreset==="today"&&d.toDateString()!==now.toDateString()) return false;
-        if(flt.periodPreset==="week"){const ago=new Date(now);ago.setDate(now.getDate()-7);if(d<ago) return false;}
-        if(flt.periodPreset==="month"&&(d.getFullYear()!==now.getFullYear()||d.getMonth()!==now.getMonth())) return false;
-        if(flt.periodPreset==="year"&&d.getFullYear()!==now.getFullYear()) return false;
-      }
-      if(flt.dateFrom&&m.date<flt.dateFrom) return false;
-      if(flt.dateTo&&m.date>flt.dateTo) return false;
-      if(flt.opponentPersons&&flt.opponentPersons.length>0&&!flt.opponentPersons.includes(m.opponentPerson||"")) return false;
-      if(flt.turns.length>0&&!flt.turns.includes(m.turn||"")) return false;
-      if(flt.results.length>0&&!flt.results.includes(m.result||"")) return false;
-      if(flt.lucky&&!m.lucky) return false;
-      if(flt.unlucky&&!m.unlucky) return false;
-      return true;
-    });
-  };
-  const activeFilters = flt.decks.length+flt.opponents.length+(flt.opponentPersons||[]).length+flt.matchTypes.length+(flt.periodPreset!=="all"?1:0)+((flt.dateFrom||flt.dateTo)?1:0)+flt.turns.length+flt.results.length+(flt.lucky?1:0)+(flt.unlucky?1:0);
-  const filtered = applyFilters(st.matches);
-  const sorted = [...filtered].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const wins=filtered.filter(m=>m.result==="win").length, loses=filtered.filter(m=>m.result==="lose").length, draws=filtered.filter(m=>m.result==="draw").length, total=filtered.length;
-  const wr=total>0?Math.round(wins/total*100):0;
-  const fm=filtered.filter(m=>m.turn==="first"), sm=filtered.filter(m=>m.turn==="second");
-  const fwr=fm.length>0?Math.round(fm.filter(m=>m.result==="win").length/fm.length*100):null;
-  const swr=sm.length>0?Math.round(sm.filter(m=>m.result==="win").length/sm.length*100):null;
-  const deckStats=st.decks.map(deck=>{
-    const ms=filtered.filter(m=>m.deckId===deck.id);
-    const w=ms.filter(m=>m.result==="win").length,l=ms.filter(m=>m.result==="lose").length,dr=ms.length-w-l;
-    return {...deck,total:ms.length,wins:w,loses:l,draws:dr,winRate:ms.length>0?Math.round(w/ms.length*100):0};
-  });
-  const opponentStats=Array.from(new Set(filtered.map(m=>m.opponent).filter(Boolean))).sort().map(name=>{
-    const ms=filtered.filter(m=>m.opponent===name);
-    const w=ms.filter(m=>m.result==="win").length,l=ms.filter(m=>m.result==="lose").length,dr=ms.length-w-l;
-    return {name,total:ms.length,wins:w,loses:l,draws:dr,winRate:ms.length>0?Math.round(w/ms.length*100):0};
-  });
-
-  const toggleBulkSelect = id => setBulkSelected(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
-  const executeBulkDelete = () => { setSt(s=>({...s,matches:s.matches.filter(m=>!bulkSelected.includes(m.id))})); setBulkSelected([]); setBulkMode(false); };
-  const cancelBulkMode = () => { setBulkMode(false); setBulkSelected([]); };
-  const inputStyle={background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,padding:"10px 12px",fontSize:14,width:"100%",boxSizing:"border-box"};
-
-  // ── STAT SECTION LABELS ───────────────────────────
-  const STAT_SECTIONS = [
-    ["overall",t.statOverall], ["winTrend",t.statWinTrend], ["turns",t.statTurns],
-    ["deckBar",t.statDeckBar], ["deckPie",t.statDeckPie],
-    ["oppBar",t.statOppBar], ["oppPie",t.statOppPie],
-  ];
-
   return (
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"Noto Sans JP,Hiragino Sans,sans-serif"}}>
       {/* HEADER */}
       <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
         <div style={{fontSize:22}}>🌐</div>
         <div style={{flex:1}}>
-          <div style={{fontWeight:900,fontSize:20,letterSpacing:1,background:`linear-gradient(90deg,${C.accent},#ffffff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>DegiLog</div>
+          <div style={{fontWeight:900,fontSize:20,letterSpacing:1,background:`linear-gradient(90deg,${C.accent},#ffffff)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>DigiLog</div>
         </div>
         <button onClick={()=>setShowLife(v=>!v)} style={{background:showLife?C.accent+"33":"transparent",border:`1px solid ${showLife?C.accent:C.border}`,borderRadius:8,color:showLife?C.accent:C.muted,padding:"6px 10px",cursor:"pointer",fontSize:12}}>
           {t.memoryGauge}
@@ -1857,7 +2317,7 @@ export default function App() {
                   </>
                 )}
               </div>
-              {filterBarOpen&&<FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle} t={t} lang={lang}/>}
+              {filterBarOpen&&<FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle} t={t} lang={lang} formFields={st.formFields||{}} />}
             </div>
             {sorted.length===0?(
               <div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}>
@@ -2046,7 +2506,41 @@ export default function App() {
               <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:4}}>
                 <FilterBarTop activeFilters={activeFilters} open={filterBarOpen} setOpen={setFilterBarOpen} onReset={resetFilters} t={t}/>
               </div>
-              {filterBarOpen&&<FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle} t={t} lang={lang}/>}
+              {!filterBarOpen&&activeFilters>0&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:4}}>
+                  {flt.periodPreset!=="all"&&flt.periodPreset!=="custom"&&(
+                    <span style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>
+                      {flt.periodPreset==="today"?t.periodToday:flt.periodPreset==="week"?t.periodWeek:flt.periodPreset==="month"?t.periodMonth:t.periodYear}
+                    </span>
+                  )}
+                  {(flt.dateFrom||flt.dateTo)&&(
+                    <span style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>
+                      {(flt.dateFrom||"")+"〜"+(flt.dateTo||"")}
+                    </span>
+                  )}
+                  {st.decks.filter(d=>flt.decks.includes(d.id)).map(d=>(
+                    <span key={d.id} style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>{d.name}</span>
+                  ))}
+                  {flt.decks.includes("__no_deck__")&&(
+                    <span style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>{t.noData}</span>
+                  )}
+                  {flt.opponents.map(n=>(
+                    <span key={n} style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>vs {n}</span>
+                  ))}
+                  {flt.matchTypes.map(tx=>(
+                    <span key={tx} style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>{displayMatchType(tx,lang)}</span>
+                  ))}
+                  {flt.turns.map(tx=>(
+                    <span key={tx} style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>{tx==="first"?t.first:tx==="second"?t.second:t.notSet}</span>
+                  ))}
+                  {flt.results.map(r=>(
+                    <span key={r} style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>{r==="win"?t.win:r==="lose"?t.lose:t.draw}</span>
+                  ))}
+                  {flt.lucky&&<span style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>{t.lucky}</span>}
+                  {flt.unlucky&&<span style={{background:C.accent+"22",color:C.accent,border:`1px solid ${C.accent}44`,borderRadius:12,padding:"2px 10px",fontSize:12}}>{t.unlucky}</span>}
+                </div>
+              )}
+              {filterBarOpen&&<FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle} t={t} lang={lang} formFields={st.formFields||{}} />}
             </div>
             {total===0?<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:40}}>📊</div><div style={{marginTop:12}}>{t.noStatData}</div></div>:(
               <div style={{marginTop:12}}>
@@ -2124,7 +2618,7 @@ export default function App() {
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
               <div style={{fontWeight:800,fontSize:14,marginBottom:12}}>{t.languageLabel}</div>
               <div style={{display:"flex",gap:8}}>
-                {[["ja","日本語"],["en","English"]].map(([code,label])=>(
+                {[["ja","日本語"],["en","English"],["ko","한국어"],["zh","中文"],["es","Español"]].map(([code,label])=>(
                   <button key={code} onClick={()=>changeLang(code)} style={{flex:1,padding:"10px 0",borderRadius:8,border:`2px solid ${lang===code?C.accent:C.border}`,background:lang===code?C.accent+"22":"transparent",color:lang===code?C.accent:C.muted,fontWeight:lang===code?700:400,cursor:"pointer",fontSize:14}}>{label}</button>
                 ))}
               </div>
@@ -2135,7 +2629,7 @@ export default function App() {
               <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                 {Object.entries(THEMES).map(([id,theme])=>{
                   const sel=st.theme===id;
-                  const label = lang==="en" ? theme.labelEn : theme.label;
+                  const label = getThemeLabel(theme, lang);
                   return <button key={id} onClick={()=>setSt(s=>({...s,theme:id}))} style={{padding:"6px 14px",borderRadius:20,border:`2px solid ${sel?theme.accent:C.border}`,background:sel?theme.accent+"22":"transparent",color:sel?theme.accent:C.muted,cursor:"pointer",fontWeight:sel?700:400,fontSize:13}}>{label}</button>;
                 })}
               </div>
