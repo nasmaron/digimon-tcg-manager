@@ -128,7 +128,7 @@ const TRANSLATIONS = {
     statSettings: "統計画面の表示設定（強力）",
     statSettingsWarn: "⚠️ チェックを外すと統計セクションが完全に非表示になります",
     oppManagement: "対戦相手の管理",
-    matchTypeManagement: "対戦種類の管理",
+    matchTypeManagement: "対戦種類の管理", mergeMatchTypes: "対戦種類をまとめる", mergeMatchTypesHint: "2つ以上選んで統一名を入力",
     csvImport: "CSVインポート",
     csvImportHint: "他の対戦記録アプリのCSVを読み込めます",
     selectCSV: "CSVファイルを選択",
@@ -278,7 +278,7 @@ const TRANSLATIONS = {
     statSettings: "Stats Display Settings",
     statSettingsWarn: "⚠️ Hiding a section removes it completely from stats",
     oppManagement: "Opponent Management",
-    matchTypeManagement: "Match Type Management",
+    matchTypeManagement: "Match Type Management", mergeMatchTypes: "Merge Match Types", mergeMatchTypesHint: "Select 2+ and enter a unified name",
     csvImport: "CSV Import",
     csvImportHint: "Import match data from other apps via CSV",
     selectCSV: "Select CSV file",
@@ -418,7 +418,7 @@ const TRANSLATIONS = {
     statSettings: "통계 화면 표시 설정",
     statSettingsWarn: "⚠️ 체크 해제 시 통계 섹션이 완전히 숨겨집니다",
     oppManagement: "상대방 관리",
-    matchTypeManagement: "대전 종류 관리",
+    matchTypeManagement: "대전 종류 관리", mergeMatchTypes: "대전 종류 합치기", mergeMatchTypesHint: "2개 이상 선택 후 통합 이름 입력",
     csvImport: "CSV 가져오기",
     csvImportHint: "다른 앱의 CSV 파일을 가져올 수 있습니다",
     selectCSV: "CSV 파일 선택",
@@ -558,7 +558,7 @@ const TRANSLATIONS = {
     statSettings: "统计界面显示设置",
     statSettingsWarn: "⚠️ 取消勾选后该统计区块将完全隐藏",
     oppManagement: "对手管理",
-    matchTypeManagement: "对战类型管理",
+    matchTypeManagement: "对战类型管理", mergeMatchTypes: "合并对战类型", mergeMatchTypesHint: "选择2个以上并输入统一名称",
     csvImport: "CSV导入",
     csvImportHint: "可以导入其他应用的CSV文件",
     selectCSV: "选择CSV文件",
@@ -698,7 +698,7 @@ const TRANSLATIONS = {
     statSettings: "Configuración de estadísticas",
     statSettingsWarn: "⚠️ Desactivar ocultará completamente esa sección",
     oppManagement: "Gestión de rivales",
-    matchTypeManagement: "Gestión de tipos de partida",
+    matchTypeManagement: "Gestión de tipos de partida", mergeMatchTypes: "Fusionar tipos de partida", mergeMatchTypesHint: "Selecciona 2+ e introduce el nombre unificado",
     csvImport: "Importar CSV",
     csvImportHint: "Importa datos de otras apps en formato CSV",
     selectCSV: "Seleccionar archivo CSV",
@@ -928,11 +928,7 @@ function getMatchImage(match, deckImages, deck) {
     const img = deckImages.find(i => i.id === match.imageId);
     if (img) return img.imageData;
   }
-  if (deck?.currentImageId) {
-    const img = deckImages.find(i => i.id === deck.currentImageId);
-    if (img) return img.imageData;
-  }
-  return deck?.image || null;
+  return null;
 }
 function firstHex(colors) {
   if (!colors?.length) return C.muted;
@@ -1929,6 +1925,23 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
+function MatchTypeMergeModal({ matchTypes, matches, lang, onMerge, onCancel, t, displayMatchType }) {
+  const allUsedTypes = Array.from(new Set([
+    ...matchTypes,
+    ...matches.map(m=>m.matchType).filter(Boolean),
+  ]));
+  return <MergeModal
+    allNames={allUsedTypes.map(tx=>displayMatchType(tx,lang))}
+    onMerge={(selDisplayed,name)=>{
+      const selOriginal=allUsedTypes.filter(tx=>selDisplayed.includes(displayMatchType(tx,lang)));
+      onMerge(selOriginal,name);
+    }}
+    onCancel={onCancel}
+    initialSelected={[]}
+    t={{...t, mergeOpponents:t.mergeMatchTypes, mergeOppHint:t.mergeMatchTypesHint}}
+  />;
+}
+
 function DeckRow({ deck, checked, ds, hex, showDeckStats, checkedDecks, setCheckedDecks, setDeckImgPreview, setSt, setDeckDetail, deckImages, t }) {
   const curImg = deckImages.find(i=>i.id===deck.currentImageId);
   return (
@@ -2004,6 +2017,7 @@ export default function App() {
   const [checkedDecks, setCheckedDecks] = useState([]);
   const [showAddOpp, setShowAddOpp] = useState(false);
   const [showMergeDeck, setShowMergeDeck] = useState(false);
+  const [showMergeMatchType, setShowMergeMatchType] = useState(false);
   const [deckSearch, setDeckSearch] = useState("");
   const [deckSort, setDeckSort] = useState("recent");
   const [deckImgPreview, setDeckImgPreview] = useState(null);
@@ -2075,6 +2089,10 @@ export default function App() {
         const deckMatches = s.matches.filter(m => m.deckId === deckId && m.id !== form._id);
         const isLatest = deckMatches.every(m => m.date <= form.date);
         if (isLatest) { decks = decks.map(d => d.id===deckId ? {...d, currentImageId:newImgId} : d); }
+      } else if (!imageId) {
+        // デッキ画像未登録の場合、その時点のcurrentImageIdを固定でセット
+        const currentDeck = decks.find(d => d.id === deckId);
+        if (currentDeck?.currentImageId) imageId = currentDeck.currentImageId;
       }
       const opponentNames = Array.from(new Set([...(s.opponentNames||[]), form.opponent]));
       const prefs = {...s.prefs, lastDeckId:deckId, lastOpponent:form.opponent, lastMatchType:form.matchType};
@@ -2102,6 +2120,14 @@ export default function App() {
   const deleteDeck = id => setSt(s=>({...s,decks:s.decks.filter(x=>x.id!==id)}));
   const deleteMatch = id => setSt(s=>({...s,matches:s.matches.filter(m=>m.id!==id)}));
   const handleMerge = (sel,name) => { setSt(s=>({...s, matches:s.matches.map(m=>sel.includes(m.opponent)?{...m,opponent:name}:m), opponentNames:Array.from(new Set([...s.opponentNames.filter(n=>!sel.includes(n)),name]))})); setShowMerge(false); setCheckedOpps([]); };
+  const handleMergeMatchTypes = (sel, name) => {
+    setSt(s=>({
+      ...s,
+      matches: s.matches.map(m => sel.includes(m.matchType) ? {...m, matchType:name} : m),
+      matchTypes: [...Array.from(new Set([...(s.matchTypes||[]).filter(t=>!sel.includes(t)), name]))],
+    }));
+    setShowMergeMatchType(false);
+  };
   const handleMergeDecks = (selIds, name, baseId) => {
     setSt(s=>{
       const baseDeck=s.decks.find(d=>d.id===baseId);
@@ -2685,7 +2711,10 @@ export default function App() {
             </div>
             {/* Match Types */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
-              <div style={{fontWeight:800,fontSize:14,marginBottom:12}}>{t.matchTypeManagement}</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div style={{fontWeight:800,fontSize:14}}>{t.matchTypeManagement}</div>
+                <button disabled={matchTypes.length<2} onClick={()=>setShowMergeMatchType(true)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${matchTypes.length>=2?C.accent:C.border}`,background:matchTypes.length>=2?C.accent+"22":"transparent",color:matchTypes.length>=2?C.accent:C.muted,cursor:matchTypes.length>=2?"pointer":"not-allowed",fontSize:12}}>{t.merge}</button>
+              </div>
               <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:4}}>
                 {matchTypes.map((tx,i)=>(
                   <div key={tx} style={{display:"flex",alignItems:"center",gap:6,background:C.surface,borderRadius:8,padding:"8px 10px"}}>
@@ -2823,6 +2852,7 @@ export default function App() {
       />}
 
       {showMerge&&<MergeModal allNames={allOpponentNames} onMerge={handleMerge} onCancel={()=>{setShowMerge(false);setMergeInitial([]);}} initialSelected={mergeInitial} t={t}/>}
+      {showMergeMatchType&&<MatchTypeMergeModal matchTypes={matchTypes} matches={st.matches} lang={lang} onMerge={handleMergeMatchTypes} onCancel={()=>setShowMergeMatchType(false)} t={t} displayMatchType={displayMatchType}/>}
       {showMergeDeck&&<DeckMergeModal decks={st.decks} selectedIds={checkedDecks} deckImages={st.deckImages||[]} onMerge={handleMergeDecks} onCancel={()=>setShowMergeDeck(false)} t={t}/>}
 
       {/* Delete Confirms */}
