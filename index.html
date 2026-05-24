@@ -9,14 +9,13 @@
     <meta name="theme-color" content="#0a0e1a" />
     <!-- iOS ホーム画面追加用 -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DigiLog" />
     <link rel="apple-touch-icon" href="/digilog-icon.svg" />
     <!-- OGP（SNSシェア用） -->
     <meta property="og:title" content="DigiLog - Battle Tracker" />
     <meta property="og:description" content="Digimon TCG 対戦記録アプリ" />
     <meta property="og:image" content="/digilog-icon.svg" />
-    <!-- viewport-fit=coverでセーフエリアを制御 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>DigiLog</title>
     <style>
@@ -28,10 +27,14 @@
         padding: 0;
         width: 100%;
         height: 100%;
+        /* ステータスバー背景をアプリと同じ紺色に */
+        background-color: #0a0e1a;
       }
       #root {
         width: 100%;
         min-height: 100vh;
+        /* セーフエリア分だけ上にパディング */
+        padding-top: env(safe-area-inset-top);
       }
     </style>
   </head>
