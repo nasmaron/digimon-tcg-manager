@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" shape-rendering="crispEdges">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0e1a"/>
+      <stop offset="100%" style="stop-color:#0d1a30"/>
+    </linearGradient>
+    <filter id="bf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="rf"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- DIGI 青 -->
+  <rect x="86" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="106" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="126" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="86" y="116" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="146" y="116" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="86" y="136" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="146" y="136" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="86" y="156" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="146" y="156" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="86" y="176" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="146" y="176" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="86" y="196" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="146" y="196" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="86" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="106" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="126" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="186" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="206" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="226" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="206" y="116" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="206" y="136" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="206" y="156" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="206" y="176" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="206" y="196" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="186" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="206" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="226" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="286" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="306" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="326" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="266" y="116" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="266" y="136" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="266" y="156" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="306" y="156" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="326" y="156" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="266" y="176" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="326" y="176" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="266" y="196" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="326" y="196" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="286" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="306" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="326" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="366" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="386" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="406" y="96" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="386" y="116" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="386" y="136" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="386" y="156" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="386" y="176" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="386" y="196" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <rect x="366" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="386" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/><rect x="406" y="216" width="16" height="16" fill="#00d4ff" filter="url(#bf)"/>
+  <!-- LOG 赤 -->
+  <rect x="116" y="276" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="116" y="296" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="116" y="316" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="116" y="336" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="116" y="356" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="116" y="376" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="116" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="136" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="156" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="176" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="236" y="276" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="256" y="276" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="216" y="296" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="276" y="296" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="216" y="316" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="276" y="316" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="216" y="336" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="276" y="336" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="216" y="356" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="276" y="356" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="216" y="376" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="276" y="376" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="236" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="256" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="336" y="276" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="356" y="276" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="376" y="276" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="316" y="296" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="316" y="316" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="316" y="336" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="356" y="336" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="376" y="336" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="316" y="356" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="376" y="356" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="316" y="376" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="376" y="376" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+  <rect x="336" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="356" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/><rect x="376" y="396" width="16" height="16" fill="#ff3355" filter="url(#rf)"/>
+</svg>
