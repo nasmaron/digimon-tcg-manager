@@ -1,0 +1,17 @@
+{
+  "name": "DigiLog - Battle Tracker",
+  "short_name": "DigiLog",
+  "description": "Digimon TCG battle tracking app",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "icons": [
+    {
+      "src": "/digilog-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
