@@ -1306,7 +1306,7 @@ export default function App() {
   const [showMerge, setShowMerge] = useState(false);
   const [mergeInitial, setMergeInitial] = useState([]);
   const [newDeck, setNewDeck] = useState({name:"",colors:[],notes:"",url:"",image:"",parentId:""});
-  const [flt, setFlt] = useState({ decks:[], opponents:[], opponentPersons:[], matchTypes:[], turns:[], results:[], lucky:false, unlucky:false, periodPreset:"all", dateFrom:"", dateTo:"" });
+  const [flt, setFlt] = useState(()=>{try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.flt;if(p)return p;}catch{} return {decks:[],opponents:[],opponentPersons:[],matchTypes:[],turns:[],results:[],lucky:false,unlucky:false,periodPreset:"all",dateFrom:"",dateTo:""};});
   const [importResult, setImportResult] = useState(null);
   const [deckDetail, setDeckDetail] = useState(null);
   const [deckView, setDeckView] = useState(()=>{ try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');return d.uiPrefs?.deckView||'mine';}catch{return 'mine';} });
@@ -1334,12 +1334,12 @@ export default function App() {
   const [showAddOpp, setShowAddOpp] = useState(false);
   const [showMergeDeck, setShowMergeDeck] = useState(false);
   const [deckSearch, setDeckSearch] = useState("");
-  const [deckSort, setDeckSort] = useState("recent");
+  const [deckSort, setDeckSort] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.deckSort||"recent";}catch{return "recent";}});
   const [deckImgPreview, setDeckImgPreview] = useState(null);
-  const [oppSort, setOppSort] = useState("name");
-  const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [oppSort, setOppSort] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.oppSort||"name";}catch{return "name";}});
+  const [showActiveOnly, setShowActiveOnly] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.showActiveOnly||false;}catch{return false;}});
   const [newOppName, setNewOppName] = useState("");
-  const [statVis, setStatVis] = useState(()=>{ try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.statVis||{};return{overall:p.overall!==false,turns:p.turns!==false,deckBar:p.deckBar!==false,oppBar:p.oppBar!==false,deckPie:p.deckPie!==false,oppPie:p.oppPie!==false};}catch{return{overall:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true};} });
+  const [statVis, setStatVis] = useState(()=>{ try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.statVis||{};return{overall:p.overall!==false,winTrend:p.winTrend!==false,turns:p.turns!==false,deckBar:p.deckBar!==false,oppBar:p.oppBar!==false,deckPie:p.deckPie!==false,oppPie:p.oppPie!==false};}catch{return{overall:true,winTrend:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true};} });
   const [deleteConfirmType, setDeleteConfirmType] = useState(null);
 
   const setF = patch => { setFlt(f=>({...f,...patch})); setDisplayCount(20); };
@@ -1356,7 +1356,7 @@ export default function App() {
   useEffect(()=>{
     try{
       const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
-      d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis};
+      d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,flt};
       localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
     }catch{}
   },[tab,deckView,showDeckStats,showNotes,statVis]);
