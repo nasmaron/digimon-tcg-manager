@@ -1833,7 +1833,7 @@ export default function App() {
                                 {showDeckStats&&<span style={{fontWeight:900,color:ds.winRate>=50?C.win:C.lose,fontSize:15,flexShrink:0}}>{ds.total>0?`${ds.winRate}%`:"−"}</span>}
                               </div>
                               {/* 右：使用中スイッチ + 編集ボタン */}
-                              <div onClick={e=>{e.stopPropagation();setSt(s=>({...s,decks:s.decks.map(d=>d.id===deck.id?{...d,isActive:!d.isActive}:d)}));}} style={{width:44,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,borderLeft:`1px solid ${C.border}`,cursor:"pointer",padding:"0 4px"}}>
+                              <div onClick={e=>{e.stopPropagation();setSt(s=>{const next={...s,decks:s.decks.map(d=>d.id===deck.id?{...d,isActive:!d.isActive}:d)};save(next);return next;});}} style={{width:44,flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,borderLeft:`1px solid ${C.border}`,cursor:"pointer",padding:"0 4px"}}>
                                 <div style={{width:32,height:18,borderRadius:9,background:deck.isActive?C.accent:"#333",position:"relative",transition:"background 0.2s",flexShrink:0}}>
                                   <div style={{position:"absolute",top:2,left:deck.isActive?14:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
                                 </div>
