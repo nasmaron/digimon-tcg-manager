@@ -1359,7 +1359,7 @@ export default function App() {
       d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,flt};
       localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
     }catch{}
-  },[tab,deckView,showDeckStats,showNotes,statVis]);
+  },[tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,flt]);
   useEffect(()=>{
     if(showAddDeck){ document.body.style.overflow="hidden"; }
     else { document.body.style.overflow=""; }
@@ -2063,15 +2063,27 @@ export default function App() {
               <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>データのバックアップ・復元</div>
               <div style={{fontSize:12,color:C.muted,marginBottom:12}}>機種変更などの際に全データを移行できます。画像込みでファイル保存できます。</div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                <button onClick={()=>{
-                  const json=serializeData(st,true);
-                  const blob=new Blob([json],{type:"application/json"});
-                  const url=URL.createObjectURL(blob);
-                  const a=document.createElement("a");
-                  a.href=url;
-                  a.download="digimon_backup_"+new Date().toISOString().slice(0,10)+".json";
-                  a.click();
-                  URL.revokeObjectURL(url);
+                <button onClick={async ()=>{
+                  try {
+                    const idbImgs = await idbGetAll();
+                    const hasImgData = idbImgs.some(i => !!i.imageData);
+                    if (!hasImgData && idbImgs.length > 0) {
+                      alert("⚠️ IDBから画像データを取得できませんでした（件数:" + idbImgs.length + "件、imageDataなし）");
+                      return;
+                    }
+                    const fullSt = {...st, deckImages: idbImgs};
+                    const json = serializeData(fullSt, true);
+                    const blob = new Blob([json],{type:"application/json"});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "digimon_backup_"+new Date().toISOString().slice(0,10)+".json";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    alert("✅ バックアップ完了（画像" + idbImgs.length + "件含む）");
+                  } catch(e) {
+                    alert("❌ バックアップ失敗: "+e.message);
+                  }
                 }} style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accent+"18",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
                   📤 バックアップをダウンロード（画像込み）
                 </button>
