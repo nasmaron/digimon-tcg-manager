@@ -2060,42 +2060,71 @@ export default function App() {
             </div>
             {/* Backup / Restore */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
-              <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>データのバックアップ・復元</div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>機種変更などの際に全データを移行できます。画像込みでファイル保存できます。</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>データのバックアップ・復元</div>
+              {/* ダウンロード */}
+              <div style={{fontSize:11,color:C.muted,marginBottom:6,fontWeight:700}}>📤 ダウンロード</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
                 <button onClick={async ()=>{
                   try {
                     const idbImgs = await idbGetAll();
-                    const hasImgData = idbImgs.some(i => !!i.imageData);
-                    if (!hasImgData && idbImgs.length > 0) {
-                      alert("⚠️ IDBから画像データを取得できませんでした（件数:" + idbImgs.length + "件、imageDataなし）");
-                      return;
-                    }
                     const fullSt = {...st, deckImages: idbImgs};
                     const json = serializeData(fullSt, true);
                     const blob = new Blob([json],{type:"application/json"});
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = "digimon_backup_"+new Date().toISOString().slice(0,10)+".json";
+                    a.download = "digimon_backup_full_"+new Date().toISOString().slice(0,10)+".json";
                     a.click();
                     URL.revokeObjectURL(url);
-                    alert("✅ バックアップ完了（画像" + idbImgs.length + "件含む）");
-                  } catch(e) {
-                    alert("❌ バックアップ失敗: "+e.message);
-                  }
-                }} style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accent+"18",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
-                  📤 バックアップをダウンロード（画像込み）
+                  } catch(e) { alert("❌ 失敗: "+e.message); }
+                }} style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accent+"18",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                  🗂️ 全データ（画像込み）
                 </button>
-                <label style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13,fontWeight:700,textAlign:"center",display:"block",boxSizing:"border-box"}}>
-                  📥 バックアップから復元
+                <button onClick={()=>{
+                  const json = serializeData(st, false);
+                  const blob = new Blob([json],{type:"application/json"});
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "digimon_backup_data_"+new Date().toISOString().slice(0,10)+".json";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }} style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                  📋 画像以外の全データ
+                </button>
+              </div>
+              {/* 復元 */}
+              <div style={{fontSize:11,color:C.muted,marginBottom:6,fontWeight:700}}>📥 復元</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <label style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text,cursor:"pointer",fontSize:13,fontWeight:700,textAlign:"center",display:"block",boxSizing:"border-box"}}>
+                  🗂️ 全データを復元
                   <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
                     const file=e.target.files[0];
                     if(!file)return;
                     const reader=new FileReader();
                     reader.onload=ev=>{
                       const d=parseData(ev.target.result);
-                      if(d){setSt(d);alert("復元しました！");}
+                      if(d){
+                        if(d.deckImages&&d.deckImages.length>0){
+                          Promise.all(d.deckImages.map(img=>idbPut(img))).catch(()=>{});
+                        }
+                        setSt(d);
+                        alert("復元しました！");
+                      } else alert("ファイルが正しくありません。");
+                    };
+                    reader.readAsText(file);
+                    e.target.value="";
+                  }}/>
+                </label>
+                <label style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text,cursor:"pointer",fontSize:13,fontWeight:700,textAlign:"center",display:"block",boxSizing:"border-box"}}>
+                  📋 画像以外の全データを復元
+                  <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
+                    const file=e.target.files[0];
+                    if(!file)return;
+                    const reader=new FileReader();
+                    reader.onload=ev=>{
+                      const d=parseData(ev.target.result);
+                      if(d){ setSt(s=>({...d,deckImages:s.deckImages})); alert("復元しました！（画像はそのまま）"); }
                       else alert("ファイルが正しくありません。");
                     };
                     reader.readAsText(file);
