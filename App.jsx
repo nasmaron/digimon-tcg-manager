@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { inject } from "@vercel/analytics";
+inject();
 // Google Fonts: Press Start 2P (pixel font)
 const _pixelFontLink = document.createElement("link");
 _pixelFontLink.rel = "stylesheet";
