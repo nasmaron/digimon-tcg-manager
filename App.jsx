@@ -632,9 +632,17 @@ function WinRateChart({ matches, flt }) {
 
 function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
   const [vp,setVp]=useState({w:window.innerWidth,h:window.innerHeight});
+  const [safe,setSafe]=useState({top:0,bottom:0,left:0,right:0});
   useEffect(()=>{
     const update=()=>{const vv=window.visualViewport;setVp({w:vv?vv.width:window.innerWidth,h:vv?vv.height:window.innerHeight});};
     update();
+    // セーフエリアの値を取得
+    const probe=document.createElement("div");
+    probe.style.cssText="position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);visibility:hidden;pointer-events:none;";
+    document.body.appendChild(probe);
+    const cs=getComputedStyle(probe);
+    setSafe({top:parseFloat(cs.paddingTop)||0,bottom:parseFloat(cs.paddingBottom)||0,left:parseFloat(cs.paddingLeft)||0,right:parseFloat(cs.paddingRight)||0});
+    document.body.removeChild(probe);
     window.addEventListener("resize",update);
     window.visualViewport?.addEventListener("resize",update);
     return()=>{window.removeEventListener("resize",update);window.visualViewport?.removeEventListener("resize",update);};
@@ -651,7 +659,8 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
     </div>
   );
 
-  const cW=vp.h,cH=vp.w;
+  // 90度回転するため、縦の余白(top/bottom)は回転後の横幅(cW)に効く
+  const cW=vp.h-safe.top-safe.bottom, cH=vp.w-safe.left-safe.right;
   const padH=24,padV=80,gf=0.12;
   const btnFromW=(cW-padH)/(10+8*gf+1.1);
   const btnFromH=(cH-padV)/(2+gf);
@@ -688,7 +697,7 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
   };
 
   return (
-    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0a0a"}}>
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0a0a",paddingTop:safe.top,paddingBottom:safe.bottom,paddingLeft:safe.left,paddingRight:safe.right,boxSizing:"border-box"}}>
       <div style={{width:cW,height:cH,transform:"rotate(90deg)",transformOrigin:"center center",flexShrink:0,position:"relative",overflow:"hidden"}}>
         {/* ドットグリッド背景 */}
         <div style={{position:"absolute",inset:0,background:accent,opacity:0.9}}/>
