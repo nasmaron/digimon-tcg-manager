@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { inject } from "@vercel/analytics";
-inject();
 // Google Fonts: Press Start 2P (pixel font)
 const _pixelFontLink = document.createElement("link");
 _pixelFontLink.rel = "stylesheet";
@@ -144,15 +142,17 @@ function addDeckImage(deckImages, decks, deckId, imageData) {
   const maxImages = deck?.maxImages ?? 10; // 0=無制限
   const newImg = { id: genId(), deckId, imageData, createdAt: new Date().toISOString() };
   let imgs = [...deckImages, newImg];
+  let deletedIds = [];
   if (maxImages > 0) {
     // このデッキの画像を古い順に並べて上限超え分を削除
     const deckImgs = imgs.filter(i => i.deckId === deckId).sort((a,b) => a.createdAt.localeCompare(b.createdAt));
     if (deckImgs.length > maxImages) {
       const toDelete = new Set(deckImgs.slice(0, deckImgs.length - maxImages).map(i => i.id));
+      deletedIds = [...toDelete];
       imgs = imgs.filter(i => !toDelete.has(i.id));
     }
   }
-  return { newImgs: imgs, newImgId: newImg.id };
+  return { newImgs: imgs, newImgId: newImg.id, deletedIds };
 }
 
 // imageIdから画像データを取得（後方互換付き）
@@ -632,9 +632,17 @@ function WinRateChart({ matches, flt }) {
 
 function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
   const [vp,setVp]=useState({w:window.innerWidth,h:window.innerHeight});
+  const [safe,setSafe]=useState({top:0,bottom:0,left:0,right:0});
   useEffect(()=>{
     const update=()=>{const vv=window.visualViewport;setVp({w:vv?vv.width:window.innerWidth,h:vv?vv.height:window.innerHeight});};
     update();
+    // セーフエリアの値を取得
+    const probe=document.createElement("div");
+    probe.style.cssText="position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);visibility:hidden;pointer-events:none;";
+    document.body.appendChild(probe);
+    const cs=getComputedStyle(probe);
+    setSafe({top:parseFloat(cs.paddingTop)||0,bottom:parseFloat(cs.paddingBottom)||0,left:parseFloat(cs.paddingLeft)||0,right:parseFloat(cs.paddingRight)||0});
+    document.body.removeChild(probe);
     window.addEventListener("resize",update);
     window.visualViewport?.addEventListener("resize",update);
     return()=>{window.removeEventListener("resize",update);window.visualViewport?.removeEventListener("resize",update);};
@@ -651,7 +659,8 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
     </div>
   );
 
-  const cW=vp.h,cH=vp.w;
+  // 90度回転するため、縦の余白(top/bottom)は回転後の横幅(cW)に効く
+  const cW=vp.h-safe.top-safe.bottom, cH=vp.w-safe.left-safe.right;
   const padH=24,padV=80,gf=0.12;
   const btnFromW=(cW-padH)/(10+8*gf+1.1);
   const btnFromH=(cH-padV)/(2+gf);
@@ -688,7 +697,7 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
   };
 
   return (
-    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0a0a"}}>
+    <div style={{position:"fixed",top:0,left:0,width:vp.w,height:vp.h,zIndex:9999,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0a0a",paddingTop:safe.top,paddingBottom:safe.bottom,paddingLeft:safe.left,paddingRight:safe.right,boxSizing:"border-box"}}>
       <div style={{width:cW,height:cH,transform:"rotate(90deg)",transformOrigin:"center center",flexShrink:0,position:"relative",overflow:"hidden"}}>
         {/* ドットグリッド背景 */}
         <div style={{position:"absolute",inset:0,background:accent,opacity:0.9}}/>
@@ -1361,7 +1370,7 @@ export default function App() {
       d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,flt};
       localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
     }catch{}
-  },[tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,flt]);
+  },[tab,deckView,showDeckStats,showNotes,statVis]);
   useEffect(()=>{
     if(showAddDeck){ document.body.style.overflow="hidden"; }
     else { document.body.style.overflow=""; }
@@ -1423,18 +1432,29 @@ export default function App() {
       }
 
       // 相手デッキも新規の場合はopponentNamesに追加するだけ（デッキ管理には追加しない）
-      // デッキ画像が新たに設定されていれば追加
+      // デッキ画像が新たに設定されていれば追加（編集時は既存画像と同じなら重複保存しない）
       if (form.deckImage) {
-        const { newImgs, newImgId } = addDeckImage(deckImages, decks, deckId, form.deckImage);
-        const newImg = newImgs.find(i=>i.id===newImgId);
-        if(newImg) idbPut(newImg).catch(()=>{});
-        deckImages = newImgs;
-        imageId = newImgId;
-        const deckMatches = s.matches.filter(m => m.deckId === deckId && m.id !== form._id);
-        const isLatest = deckMatches.every(m => m.date <= form.date);
-        if (isLatest) {
-          decks = decks.map(d => d.id===deckId ? {...d, currentImageId:newImgId} : d);
+        const existingImg = imageId ? deckImages.find(i => i.id === imageId) : null;
+        const isSameImage = existingImg && existingImg.imageData === form.deckImage;
+        if (!isSameImage) {
+          const { newImgs, newImgId, deletedIds } = addDeckImage(deckImages, decks, deckId, form.deckImage);
+          const newImg = newImgs.find(i=>i.id===newImgId);
+          if(newImg) idbPut(newImg).catch(()=>{});
+          if(deletedIds.length) deletedIds.forEach(id => idbDelete(id).catch(()=>{}));
+          deckImages = newImgs;
+          imageId = newImgId;
+          const deckMatches = s.matches.filter(m => m.deckId === deckId && m.id !== form._id);
+          const isLatest = deckMatches.every(m => m.date <= form.date);
+          if (isLatest) {
+            decks = decks.map(d => d.id===deckId ? {...d, currentImageId:newImgId} : d);
+          }
         }
+      }
+
+      // imageIdが未設定の場合はデッキのcurrentImageIdを記録（後から画像が変わっても影響を受けないよう固定）
+      if (!imageId && deckId) {
+        const deck = decks.find(d => d.id === deckId);
+        if (deck?.currentImageId) imageId = deck.currentImageId;
       }
 
       const opponentNames = Array.from(new Set([...(s.opponentNames||[]), form.opponent]));
@@ -2062,71 +2082,30 @@ export default function App() {
             </div>
             {/* Backup / Restore */}
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
-              <div style={{fontWeight:800,fontSize:14,marginBottom:8}}>データのバックアップ・復元</div>
-              {/* ダウンロード */}
-              <div style={{fontSize:11,color:C.muted,marginBottom:6,fontWeight:700}}>📤 ダウンロード</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
-                <button onClick={async ()=>{
-                  try {
-                    const idbImgs = await idbGetAll();
-                    const fullSt = {...st, deckImages: idbImgs};
-                    const json = serializeData(fullSt, true);
-                    const blob = new Blob([json],{type:"application/json"});
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "digimon_backup_full_"+new Date().toISOString().slice(0,10)+".json";
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  } catch(e) { alert("❌ 失敗: "+e.message); }
-                }} style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accent+"18",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
-                  🗂️ 全データ（画像込み）
-                </button>
+              <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>データのバックアップ・復元</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>機種変更などの際に全データを移行できます。画像込みでファイル保存できます。</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 <button onClick={()=>{
-                  const json = serializeData(st, false);
-                  const blob = new Blob([json],{type:"application/json"});
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = "digimon_backup_data_"+new Date().toISOString().slice(0,10)+".json";
+                  const json=serializeData(st,true);
+                  const blob=new Blob([json],{type:"application/json"});
+                  const url=URL.createObjectURL(blob);
+                  const a=document.createElement("a");
+                  a.href=url;
+                  a.download="digimon_backup_"+new Date().toISOString().slice(0,10)+".json";
                   a.click();
                   URL.revokeObjectURL(url);
-                }} style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text,cursor:"pointer",fontSize:13,fontWeight:700}}>
-                  📋 画像以外の全データ
+                }} style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.accent}`,background:C.accent+"18",color:C.accent,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                  📤 バックアップをダウンロード（画像込み）
                 </button>
-              </div>
-              {/* 復元 */}
-              <div style={{fontSize:11,color:C.muted,marginBottom:6,fontWeight:700}}>📥 復元</div>
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                <label style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text,cursor:"pointer",fontSize:13,fontWeight:700,textAlign:"center",display:"block",boxSizing:"border-box"}}>
-                  🗂️ 全データを復元
+                <label style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13,fontWeight:700,textAlign:"center",display:"block",boxSizing:"border-box"}}>
+                  📥 バックアップから復元
                   <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
                     const file=e.target.files[0];
                     if(!file)return;
                     const reader=new FileReader();
                     reader.onload=ev=>{
                       const d=parseData(ev.target.result);
-                      if(d){
-                        if(d.deckImages&&d.deckImages.length>0){
-                          Promise.all(d.deckImages.map(img=>idbPut(img))).catch(()=>{});
-                        }
-                        setSt(d);
-                        alert("復元しました！");
-                      } else alert("ファイルが正しくありません。");
-                    };
-                    reader.readAsText(file);
-                    e.target.value="";
-                  }}/>
-                </label>
-                <label style={{width:"100%",padding:"11px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.text,cursor:"pointer",fontSize:13,fontWeight:700,textAlign:"center",display:"block",boxSizing:"border-box"}}>
-                  📋 画像以外の全データを復元
-                  <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
-                    const file=e.target.files[0];
-                    if(!file)return;
-                    const reader=new FileReader();
-                    reader.onload=ev=>{
-                      const d=parseData(ev.target.result);
-                      if(d){ setSt(s=>({...d,deckImages:s.deckImages})); alert("復元しました！（画像はそのまま）"); }
+                      if(d){setSt(d);alert("復元しました！");}
                       else alert("ファイルが正しくありません。");
                     };
                     reader.readAsText(file);
