@@ -136,6 +136,35 @@ function parseData(text) {
 // ── DeckImage helpers ──────────────────────────────────
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
+// 画像をリサイズして容量を削減（長辺を指定px以下に縮小してJPEG化）
+function resizeImage(file, maxSize=800, quality=0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) { height = Math.round(height * maxSize / width); width = maxSize; }
+          else { width = Math.round(width * maxSize / height); height = maxSize; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        try { resolve(canvas.toDataURL("image/jpeg", quality)); }
+        catch(e) { resolve(ev.target.result); }
+      };
+      img.onerror = () => resolve(ev.target.result);
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => reject(new Error("読み込み失敗"));
+    reader.readAsDataURL(file);
+  });
+}
+
 // デッキに画像を追加し、上限を超えたら古いものを削除
 function addDeckImage(deckImages, decks, deckId, imageData) {
   const deck = decks.find(d => d.id === deckId);
@@ -433,9 +462,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               }
               <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                 const file=e.target.files[0]; if(!file) return;
-                const reader=new FileReader();
-                reader.onload=ev=>set({deckImage:ev.target.result});
-                reader.readAsDataURL(file);
+                resizeImage(file).then(d=>set({deckImage:d})).catch(()=>{});
               }}/>
             </label>
             {form.deckImage&&(
@@ -453,9 +480,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               }
               <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                 const file=e.target.files[0]; if(!file) return;
-                const reader=new FileReader();
-                reader.onload=ev=>set({image:ev.target.result});
-                reader.readAsDataURL(file);
+                resizeImage(file).then(d=>set({image:d})).catch(()=>{});
               }}/>
             </label>
             {form.image&&<button onClick={()=>set({image:""})} style={{marginTop:6,background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:12}}>✕ 画像を削除</button>}
@@ -749,13 +774,36 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
 
 function BackupSizeInfo({st, C, serializeData}) {
   const [idbCount, setIdbCount] = useState((st.deckImages||[]).length);
-  useEffect(()=>{ idbGetAll().then(imgs=>setIdbCount(imgs.length)).catch(()=>{}); },[]);
-  const toKB = s => s.length < 1024*1024 ? Math.round(s.length/1024)+"KB" : (s.length/1024/1024).toFixed(1)+"MB";
+  const [idbBytes, setIdbBytes] = useState(0);
+  const [quota, setQuota] = useState(null);
+  useEffect(()=>{
+    idbGetAll().then(imgs=>{
+      setIdbCount(imgs.length);
+      const bytes = imgs.reduce((sum,i)=> sum + (i.imageData ? i.imageData.length : 0), 0);
+      setIdbBytes(bytes);
+    }).catch(()=>{});
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(e=>setQuota(e)).catch(()=>{});
+    }
+  },[]);
+  const fmt = n => n < 1024*1024 ? Math.round(n/1024)+"KB" : (n/1024/1024).toFixed(1)+"MB";
   const jsonNoImg = serializeData(st, false);
+  const usagePct = quota && quota.quota ? (quota.usage/quota.quota*100) : null;
   return (
     <div style={{marginTop:10,background:C.surface,borderRadius:8,padding:"10px 12px",fontSize:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>テキストデータ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonNoImg)}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>保存画像枚数</span><span style={{color:C.text,fontWeight:700}}>{idbCount}枚（IndexedDB）</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>テキストデータ</span><span style={{color:C.text,fontWeight:700}}>{fmt(jsonNoImg.length)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>保存画像</span><span style={{color:C.text,fontWeight:700}}>{idbCount}枚 / {fmt(idbBytes)}</span></div>
+      {idbCount>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>画像1枚あたり平均</span><span style={{color:C.text,fontWeight:700}}>{fmt(Math.round(idbBytes/idbCount))}</span></div>}
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,paddingTop:4,borderTop:`1px solid ${C.border}`}}><span style={{color:C.muted}}>合計</span><span style={{color:C.accent,fontWeight:800}}>{fmt(jsonNoImg.length + idbBytes)}</span></div>
+      {quota&&quota.quota>0&&(
+        <>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}><span style={{color:C.muted}}>ブラウザ全体の使用量</span><span style={{color:C.text,fontWeight:700}}>{fmt(quota.usage)} / {fmt(quota.quota)}</span></div>
+          <div style={{height:5,background:C.border,borderRadius:3,marginTop:5,overflow:"hidden"}}>
+            <div style={{height:"100%",width:Math.min(100,usagePct)+"%",background:usagePct>80?"#ff4444":C.accent,borderRadius:3}}/>
+          </div>
+          <div style={{fontSize:10,color:C.muted,marginTop:3,textAlign:"right"}}>{usagePct.toFixed(1)}% 使用中</div>
+        </>
+      )}
     </div>
   );
 }
@@ -947,7 +995,7 @@ function DeckDetailModal({ deck, deckStats, inputStyle, onClose, onSave, onDelet
             <div style={{fontSize:11,color:C.muted,marginBottom:6}}>デッキ画像（{thisImages.length}枚保存中 / 上限：{form.maxImages===0?"無制限":form.maxImages+"枚"}）</div>
             <label style={{display:"flex",alignItems:"center",justifyContent:"center",borderRadius:10,border:`1.5px dashed ${newImageData?C.accent:C.border}`,overflow:"hidden",cursor:"pointer",minHeight:72,background:C.surface,marginBottom:8}}>
               {newImageData?<img src={newImageData} alt="" style={{width:"100%",maxHeight:140,objectFit:"contain"}}/>:<span style={{color:C.muted,fontSize:13,padding:16}}>📷 新しい画像を追加</span>}
-              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>setNewImageData(ev.target.result);reader.readAsDataURL(file);}}/>
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;resizeImage(file).then(d=>setNewImageData(d)).catch(()=>{});}}/>
             </label>
             {newImageData&&(
               <div style={{display:"flex",gap:8,marginBottom:8}}>
@@ -1440,7 +1488,6 @@ export default function App() {
           const { newImgs, newImgId, deletedIds } = addDeckImage(deckImages, decks, deckId, form.deckImage);
           const newImg = newImgs.find(i=>i.id===newImgId);
           if(newImg) idbPut(newImg).catch(()=>{});
-          if(deletedIds.length) deletedIds.forEach(id => idbDelete(id).catch(()=>{}));
           deckImages = newImgs;
           imageId = newImgId;
           const deckMatches = s.matches.filter(m => m.deckId === deckId && m.id !== form._id);
