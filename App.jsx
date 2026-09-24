@@ -136,6 +136,35 @@ function parseData(text) {
 // ── DeckImage helpers ──────────────────────────────────
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
+// 画像をリサイズして容量を削減（長辺を指定px以下に縮小してJPEG化）
+function resizeImage(file, maxSize=800, quality=0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) { height = Math.round(height * maxSize / width); width = maxSize; }
+          else { width = Math.round(width * maxSize / height); height = maxSize; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        try { resolve(canvas.toDataURL("image/jpeg", quality)); }
+        catch(e) { resolve(ev.target.result); }
+      };
+      img.onerror = () => resolve(ev.target.result);
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => reject(new Error("読み込み失敗"));
+    reader.readAsDataURL(file);
+  });
+}
+
 // デッキに画像を追加し、上限を超えたら古いものを削除
 function addDeckImage(deckImages, decks, deckId, imageData) {
   const deck = decks.find(d => d.id === deckId);
@@ -433,9 +462,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               }
               <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                 const file=e.target.files[0]; if(!file) return;
-                const reader=new FileReader();
-                reader.onload=ev=>set({deckImage:ev.target.result});
-                reader.readAsDataURL(file);
+                resizeImage(file).then(d=>set({deckImage:d})).catch(()=>{});
               }}/>
             </label>
             {form.deckImage&&(
@@ -453,9 +480,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               }
               <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
                 const file=e.target.files[0]; if(!file) return;
-                const reader=new FileReader();
-                reader.onload=ev=>set({image:ev.target.result});
-                reader.readAsDataURL(file);
+                resizeImage(file).then(d=>set({image:d})).catch(()=>{});
               }}/>
             </label>
             {form.image&&<button onClick={()=>set({image:""})} style={{marginTop:6,background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:12}}>✕ 画像を削除</button>}
@@ -749,18 +774,42 @@ function MemoryGauge({marker,setMarker,onClose,accent,accentDim}) {
 
 function BackupSizeInfo({st, C, serializeData}) {
   const [idbCount, setIdbCount] = useState((st.deckImages||[]).length);
-  useEffect(()=>{ idbGetAll().then(imgs=>setIdbCount(imgs.length)).catch(()=>{}); },[]);
-  const toKB = s => s.length < 1024*1024 ? Math.round(s.length/1024)+"KB" : (s.length/1024/1024).toFixed(1)+"MB";
+  const [idbBytes, setIdbBytes] = useState(0);
+  const [quota, setQuota] = useState(null);
+  useEffect(()=>{
+    idbGetAll().then(imgs=>{
+      setIdbCount(imgs.length);
+      const bytes = imgs.reduce((sum,i)=> sum + (i.imageData ? i.imageData.length : 0), 0);
+      setIdbBytes(bytes);
+    }).catch(()=>{});
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(e=>setQuota(e)).catch(()=>{});
+    }
+  },[]);
+  const fmt = n => n < 1024*1024 ? Math.round(n/1024)+"KB" : (n/1024/1024).toFixed(1)+"MB";
   const jsonNoImg = serializeData(st, false);
+  const usagePct = quota && quota.quota ? (quota.usage/quota.quota*100) : null;
   return (
     <div style={{marginTop:10,background:C.surface,borderRadius:8,padding:"10px 12px",fontSize:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>テキストデータ</span><span style={{color:C.text,fontWeight:700}}>{toKB(jsonNoImg)}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>保存画像枚数</span><span style={{color:C.text,fontWeight:700}}>{idbCount}枚（IndexedDB）</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>テキストデータ</span><span style={{color:C.text,fontWeight:700}}>{fmt(jsonNoImg.length)}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>保存画像</span><span style={{color:C.text,fontWeight:700}}>{idbCount}枚 / {fmt(idbBytes)}</span></div>
+      {idbCount>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:C.muted}}>画像1枚あたり平均</span><span style={{color:C.text,fontWeight:700}}>{fmt(Math.round(idbBytes/idbCount))}</span></div>}
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,paddingTop:4,borderTop:`1px solid ${C.border}`}}><span style={{color:C.muted}}>合計</span><span style={{color:C.accent,fontWeight:800}}>{fmt(jsonNoImg.length + idbBytes)}</span></div>
+      {quota&&quota.quota>0&&(
+        <>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}><span style={{color:C.muted}}>ブラウザ全体の使用量</span><span style={{color:C.text,fontWeight:700}}>{fmt(quota.usage)} / {fmt(quota.quota)}</span></div>
+          <div style={{height:5,background:C.border,borderRadius:3,marginTop:5,overflow:"hidden"}}>
+            <div style={{height:"100%",width:Math.min(100,usagePct)+"%",background:usagePct>80?"#ff4444":C.accent,borderRadius:3}}/>
+          </div>
+          <div style={{fontSize:10,color:C.muted,marginTop:3,textAlign:"right"}}>{usagePct.toFixed(1)}% 使用中</div>
+        </>
+      )}
     </div>
   );
 }
 
 function PieChart({ items }) {
+  const [expanded,setExpanded]=useState(false);
   if (!items||items.length===0) return <div style={{fontSize:13,color:C.muted}}>データがありません</div>;
   const getColor = (item, index, usedColors) => {
     if (item.deckColors&&item.deckColors.length>0&&!item.deckColors.includes("rainbow")) {
@@ -794,14 +843,21 @@ function PieChart({ items }) {
         {slices.map((s,i)=><path key={i} d={s.d} fill={s.color} stroke={C.card} strokeWidth={1}/>)}
         <circle cx={cx} cy={cy} r={ir-2} fill={C.card}/>
       </svg>
-      <div style={{flex:1,maxHeight:160,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
-        {items.map((item,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
-            <div style={{width:10,height:10,borderRadius:2,background:colors[i],flexShrink:0}}/>
-            <span style={{fontSize:12,color:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.label}</span>
-            <span style={{fontSize:12,color:C.muted,flexShrink:0}}>{Math.round(item.value/sum*100)}%</span>
-          </div>
-        ))}
+      <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
+        <div style={{maxHeight:expanded?"none":160,overflowY:expanded?"visible":"auto",display:"flex",flexDirection:"column",gap:5}}>
+          {items.map((item,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+              <div style={{width:10,height:10,borderRadius:2,background:colors[i],flexShrink:0}}/>
+              <span style={{fontSize:12,color:C.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.label}</span>
+              <span style={{fontSize:12,color:C.muted,flexShrink:0}}>{Math.round(item.value/sum*100)}%</span>
+            </div>
+          ))}
+        </div>
+        {items.length>8&&(
+          <button onClick={()=>setExpanded(v=>!v)} style={{padding:"5px 0",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:C.accent,fontSize:11,fontWeight:700,cursor:"pointer",marginTop:2}}>
+            {expanded?"閉じる":`もっと見る（残り${items.length-8}件）`}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -947,7 +1003,7 @@ function DeckDetailModal({ deck, deckStats, inputStyle, onClose, onSave, onDelet
             <div style={{fontSize:11,color:C.muted,marginBottom:6}}>デッキ画像（{thisImages.length}枚保存中 / 上限：{form.maxImages===0?"無制限":form.maxImages+"枚"}）</div>
             <label style={{display:"flex",alignItems:"center",justifyContent:"center",borderRadius:10,border:`1.5px dashed ${newImageData?C.accent:C.border}`,overflow:"hidden",cursor:"pointer",minHeight:72,background:C.surface,marginBottom:8}}>
               {newImageData?<img src={newImageData} alt="" style={{width:"100%",maxHeight:140,objectFit:"contain"}}/>:<span style={{color:C.muted,fontSize:13,padding:16}}>📷 新しい画像を追加</span>}
-              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>setNewImageData(ev.target.result);reader.readAsDataURL(file);}}/>
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;resizeImage(file).then(d=>setNewImageData(d)).catch(()=>{});}}/>
             </label>
             {newImageData&&(
               <div style={{display:"flex",gap:8,marginBottom:8}}>
@@ -1102,7 +1158,7 @@ function FilterBarTop({ activeFilters, open, setOpen, onReset }) {
   );
 }
 
-function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, activeFilters, onReset, inputStyle }) {
+function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, activeFilters, onReset, inputStyle, excludeSolo, onToggleExcludeSolo }) {
   const [open, setOpen] = useState(false);
   const toggleArr = (key, val) => setF({ [key]: flt[key].includes(val) ? flt[key].filter(x=>x!==val) : [...flt[key], val] });
   const [openDeckList, setOpenDeckList] = useState(false);
@@ -1129,6 +1185,9 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
     <div>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:open?6:0}}>
         <FilterBarTop activeFilters={activeFilters} open={open} setOpen={setOpen} onReset={onReset}/>
+        <button onClick={onToggleExcludeSolo} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${excludeSolo?C.accent:C.border}`,background:excludeSolo?C.accent+"22":"transparent",color:excludeSolo?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:excludeSolo?700:400,whiteSpace:"nowrap",flexShrink:0}}>
+          一人回しを除く
+        </button>
       </div>
       {!open&&summaryItems.length>0&&(
         <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8,marginTop:2}}>
@@ -1349,6 +1408,8 @@ export default function App() {
   const [deckImgPreview, setDeckImgPreview] = useState(null);
   const [oppSort, setOppSort] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.oppSort||"name";}catch{return "name";}});
   const [showActiveOnly, setShowActiveOnly] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.showActiveOnly||false;}catch{return false;}});
+  const [excludeSolo, setExcludeSolo] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.excludeSolo||false;}catch{return false;}});
+  const [showAllOpponentStats, setShowAllOpponentStats] = useState(false);
   const [newOppName, setNewOppName] = useState("");
   const [statVis, setStatVis] = useState(()=>{ try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.statVis||{};return{overall:p.overall!==false,winTrend:p.winTrend!==false,turns:p.turns!==false,deckBar:p.deckBar!==false,oppBar:p.oppBar!==false,deckPie:p.deckPie!==false,oppPie:p.oppPie!==false};}catch{return{overall:true,winTrend:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true};} });
   const [deleteConfirmType, setDeleteConfirmType] = useState(null);
@@ -1367,10 +1428,10 @@ export default function App() {
   useEffect(()=>{
     try{
       const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
-      d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,flt};
+      d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,excludeSolo,flt};
       localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
     }catch{}
-  },[tab,deckView,showDeckStats,showNotes,statVis]);
+  },[tab,deckView,showDeckStats,showNotes,statVis,excludeSolo]);
   useEffect(()=>{
     if(showAddDeck){ document.body.style.overflow="hidden"; }
     else { document.body.style.overflow=""; }
@@ -1440,7 +1501,6 @@ export default function App() {
           const { newImgs, newImgId, deletedIds } = addDeckImage(deckImages, decks, deckId, form.deckImage);
           const newImg = newImgs.find(i=>i.id===newImgId);
           if(newImg) idbPut(newImg).catch(()=>{});
-          if(deletedIds.length) deletedIds.forEach(id => idbDelete(id).catch(()=>{}));
           deckImages = newImgs;
           imageId = newImgId;
           const deckMatches = s.matches.filter(m => m.deckId === deckId && m.id !== form._id);
@@ -1614,6 +1674,7 @@ export default function App() {
       if(flt.results.length>0&&!flt.results.includes(m.result||"")) return false;
       if(flt.lucky&&!m.lucky) return false;
       if(flt.unlucky&&!m.unlucky) return false;
+      if(excludeSolo&&(m.matchType||"")==="一人回し") return false;
       return true;
     });
   };
@@ -1919,7 +1980,7 @@ export default function App() {
         {/* STATS TAB */}
         {tab==="stats"&&(
           <div>
-            <FilterBar decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} activeFilters={activeFilters} onReset={resetFilters} inputStyle={inputStyle}/>
+            <FilterBar decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} activeFilters={activeFilters} onReset={resetFilters} inputStyle={inputStyle} excludeSolo={excludeSolo} onToggleExcludeSolo={()=>setExcludeSolo(v=>!v)}/>
             {total===0?<div style={{textAlign:"center",padding:"40px 20px",color:C.muted}}><div style={{fontSize:40,marginBottom:12}}>📊</div><div>データがありません</div></div>:(
               <div style={{marginTop:12}}>
                 <StatSection label="総合戦績" visKey="overall" statVis={statVis}>
@@ -1959,13 +2020,20 @@ export default function App() {
                   <PieChart items={deckStats.filter(d=>d.total>0).sort((a,b)=>b.total-a.total).map(d=>({label:d.name,value:d.total,deckColors:d.colors}))}/>
                 </StatSection>
                 <StatSection label="相手デッキ別成績" visKey="oppBar" statVis={statVis}>
-                  {opponentStats.sort((a,b)=>b.total-a.total).slice(0,10).map(o=>(
-                    <div key={o.name} style={{marginBottom:10}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontSize:13,fontWeight:700}}>{o.name}</span><span style={{fontSize:13,fontWeight:900,color:o.winRate>=50?C.win:C.lose}}>{o.winRate}%</span></div>
-                      <div style={{display:"flex",borderRadius:4,overflow:"hidden",height:8}}>{o.wins>0&&<div style={{flex:o.wins,background:C.win}}/>}{o.draws>0&&<div style={{flex:o.draws,background:C.draw}}/>}{o.loses>0&&<div style={{flex:o.loses,background:C.lose}}/>}</div>
-                      <div style={{fontSize:11,color:C.muted,marginTop:3}}>{o.total}戦 {o.wins}勝 {o.loses}敗</div>
-                    </div>
-                  ))}
+                  {(()=>{const sortedOpp=opponentStats.sort((a,b)=>b.total-a.total); const shown=showAllOpponentStats?sortedOpp:sortedOpp.slice(0,10); return (<>
+                    {shown.map(o=>(
+                      <div key={o.name} style={{marginBottom:10}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontSize:13,fontWeight:700}}>{o.name}</span><span style={{fontSize:13,fontWeight:900,color:o.winRate>=50?C.win:C.lose}}>{o.winRate}%</span></div>
+                        <div style={{display:"flex",borderRadius:4,overflow:"hidden",height:8}}>{o.wins>0&&<div style={{flex:o.wins,background:C.win}}/>}{o.draws>0&&<div style={{flex:o.draws,background:C.draw}}/>}{o.loses>0&&<div style={{flex:o.loses,background:C.lose}}/>}</div>
+                        <div style={{fontSize:11,color:C.muted,marginTop:3}}>{o.total}戦 {o.wins}勝 {o.loses}敗</div>
+                      </div>
+                    ))}
+                    {sortedOpp.length>10&&(
+                      <button onClick={()=>setShowAllOpponentStats(v=>!v)} style={{width:"100%",padding:"8px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.accent,fontSize:12,fontWeight:700,cursor:"pointer",marginTop:2}}>
+                        {showAllOpponentStats?"閉じる":`もっと見る（残り${sortedOpp.length-10}件）`}
+                      </button>
+                    )}
+                  </>);})()}
                 </StatSection>
                 <StatSection label="対戦相手デッキ分布" visKey="oppPie" statVis={statVis}>
                   <PieChart items={opponentStats.sort((a,b)=>b.total-a.total).map(o=>({label:o.name,value:o.total}))}/>
