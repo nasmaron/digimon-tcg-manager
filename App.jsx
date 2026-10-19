@@ -86,10 +86,10 @@ async function idbClear() {
     tx.onerror = () => reject(tx.error);
   });
 }
-const DEFAULT_MATCH_TYPES = ["テイマーバトル","エボリューションカップ","アルティメットカップ","超テイマーバトル","店舗予選","フリー"];
+const DEFAULT_MATCH_TYPES = ["テイマーバトル","エボリューションカップ","アルティメットカップ","超テイマーバトル","店舗予選","フリー","一人回し"];
 
 const FORM_FIELDS = [
-  { key:"date", label:"日付" }, { key:"matchType", label:"対戦種類" }, { key:"deck", label:"使用デッキ", required:true },
+  { key:"date", label:"日付" }, { key:"matchType", label:"対戦種類" }, { key:"isFinal", label:"決勝戦" }, { key:"deck", label:"使用デッキ", required:true },
   { key:"opponent", label:"相手デッキ", required:true }, { key:"opponentPerson", label:"対戦相手" }, { key:"turn", label:"先攻後攻" },
   { key:"result", label:"勝敗", required:true }, { key:"endTurn", label:"終了ターン" }, { key:"lucky", label:"運・不運" },
   { key:"notes", label:"メモ" }, { key:"deckUrl", label:"デッキURL" }, { key:"deckImage", label:"デッキ画像" }, { key:"image", label:"対戦画像" },
@@ -100,9 +100,12 @@ function load() {
     const d = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     return {
       decks: d.decks || [], matches: d.matches || [], opponentNames: d.opponentNames || [],
-      matchTypes: d.matchTypes || [...DEFAULT_MATCH_TYPES], prefs: d.prefs || {}, theme: d.theme || 'blue',
+      matchTypes: (()=>{ const mt=d.matchTypes || [...DEFAULT_MATCH_TYPES]; return (!d.soloTypeAdded && !mt.includes("一人回し")) ? [...mt,"一人回し"] : mt; })(), soloTypeAdded: true, prefs: d.prefs || {}, theme: d.theme || 'blue',
       formFields: d.formFields || {}, opponents: d.opponents || [],
       deckImages: d.deckImages || [],
+      markStyle: (d.markStyle && d.markStyle!=="off") ? d.markStyle : "circle",
+      markOn: d.markOn !== undefined ? d.markOn : d.markStyle !== "off",
+      cardColorOn: d.cardColorOn !== false,
       uiPrefs: d.uiPrefs || {},
     };
   } catch { return { decks:[], matches:[], opponentNames:[], matchTypes:[...DEFAULT_MATCH_TYPES], prefs:{}, theme:'blue', formFields:{}, opponents:[], deckImages:[], uiPrefs:{} }; }
@@ -220,6 +223,32 @@ function WinBadge({result}) {
   const [l,col]=m[result]||m.draw;
   return <span style={{background:col+"22",color:col,border:`1px solid ${col}55`,borderRadius:6,padding:"2px 10px",fontWeight:800,fontSize:12,fontFamily:"monospace"}}>{l}</span>;
 }
+const MARK_STYLES = [["circle","⭕ ❌"],["kanji","勝 敗"],["stamp","WIN LOSE"]];
+function ResultMark({ result, mode }) {
+  if (!mode || mode==="off") return null;
+  const col = result==="win"?C.win:result==="lose"?C.lose:C.draw;
+  const base = { position:"absolute", top:"50%", pointerEvents:"none", userSelect:"none", zIndex:-1 };
+  if (mode==="kanji") {
+    const t = result==="win"?"勝":result==="lose"?"敗":"分";
+    return <span aria-hidden="true" style={{...base,right:16,transform:"translateY(-50%)",fontSize:72,lineHeight:1,fontWeight:900,color:col,opacity:0.4}}>{t}</span>;
+  }
+  if (mode==="stamp") {
+    const t = result==="win"?"WIN":result==="lose"?"LOSE":"DRAW";
+    return <span aria-hidden="true" style={{...base,right:14,transform:"translateY(-50%) rotate(-12deg)",fontSize:30,lineHeight:1,fontWeight:900,fontFamily:"'Arial Black',Impact,sans-serif",letterSpacing:2,color:col,opacity:0.45,border:`4px solid ${col}`,borderRadius:8,padding:"6px 10px"}}>{t}</span>;
+  }
+  return (
+    <svg aria-hidden="true" width="84" height="84" viewBox="0 0 80 80" style={{...base,right:12,transform:"translateY(-50%)",opacity:0.4}}>
+      {result==="win"?(
+        <circle cx="40" cy="40" r="30" fill="none" stroke={C.win} strokeWidth="9"/>
+      ):result==="lose"?(
+        <g stroke={C.lose} strokeWidth="9" strokeLinecap="round"><line x1="14" y1="14" x2="66" y2="66"/><line x1="66" y1="14" x2="14" y2="66"/></g>
+      ):(
+        <polygon points="40,10 70,64 10,64" fill="none" stroke={C.draw} strokeWidth="9" strokeLinejoin="round"/>
+      )}
+    </svg>
+  );
+}
+
 function TurnBadge({turn}) {
   if (!turn) return null;
   const col=turn==="first"?C.first:C.second;
@@ -414,6 +443,14 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
           <Row label="対戦種類" fieldKey="matchType" formFields={formFields} onToggleField={onToggleField}>
             <MatchTypePicker value={form.matchType||""} onChange={v=>set({matchType:v})} matchTypes={matchTypes} onAdd={onAddMatchType} onDelete={onDeleteMatchType} />
           </Row>
+          <Row label="決勝戦" fieldKey="isFinal" formFields={formFields} onToggleField={onToggleField}>
+            <div onClick={()=>set({isFinal:!form.isFinal})} role="switch" aria-checked={!!form.isFinal} style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer",userSelect:"none"}}>
+              <div style={{width:48,height:28,borderRadius:14,background:form.isFinal?C.first:C.surface,border:`1.5px solid ${form.isFinal?C.first:C.border}`,position:"relative",transition:"background 0.15s",flexShrink:0}}>
+                <div style={{position:"absolute",top:2,left:form.isFinal?22:2,width:22,height:22,borderRadius:"50%",background:form.isFinal?"#000":C.muted,transition:"left 0.15s"}}/>
+              </div>
+              <span style={{fontSize:13,fontWeight:form.isFinal?800:400,color:form.isFinal?C.first:C.muted}}>{form.isFinal?"🏆 決勝戦":"決勝戦ではない"}</span>
+            </div>
+          </Row>
           <Row label="使用デッキ" fieldKey="deck" formFields={formFields} onToggleField={onToggleField} required={true}>
             <DeckPicker value={form.deckId?((decks.find(d=>d.id===form.deckId)?.name)||form.deckName||""):form.deckName||""} onChange={v=>set({deckId:decks.find(d=>d.name===v)?.id||"",deckName:v})} names={decks} placeholder="デッキ名を入力" useId={false} />
           </Row>
@@ -530,6 +567,7 @@ function MatchDetailModal({ match, deck, onClose, onEdit, formFields={}, deckIma
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <WinBadge result={match.result}/>
               <TurnBadge turn={match.turn}/>
+              {match.isFinal&&<span style={{color:C.first,background:C.first+"22",border:`1px solid ${C.first}66`,borderRadius:6,padding:"3px 10px",fontSize:12,fontWeight:800}}>🏆 決勝戦</span>}
               {show("lucky")&&match.lucky&&<span style={{color:"#22c55e",background:"#22c55e18",border:"1px solid #22c55e44",borderRadius:6,padding:"3px 10px",fontSize:12}}>🍀 運あり</span>}
               {show("lucky")&&match.unlucky&&<span style={{color:"#f87171",background:"#f8717118",border:"1px solid #f8717144",borderRadius:6,padding:"3px 10px",fontSize:12}}>💀 不運あり</span>}
             </div>
@@ -1179,6 +1217,7 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
     ...flt.matchTypes.map(t=>({label:t,key:"mt_"+t})),
     ...flt.turns.map(t=>({label:t==="first"?"先攻":t==="second"?"後攻":"未設定",key:"turn_"+t})),
     ...flt.results.map(r=>({label:r==="win"?"勝":r==="lose"?"敗":"分",key:"result_"+r})),
+    ...(flt.onlyFinal?[{label:"決勝戦のみ",key:"onlyFinal"}]:[]),
   ];
 
   return (
@@ -1278,6 +1317,7 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
             <div style={{display:"flex",gap:5}}>
               <button onClick={()=>setF({lucky:!flt.lucky})} style={chip(flt.lucky)}>🍀 運あり</button>
               <button onClick={()=>setF({unlucky:!flt.unlucky})} style={chip(flt.unlucky)}>💀 不運あり</button>
+<button onClick={()=>setF({onlyFinal:!flt.onlyFinal})} style={chip(flt.onlyFinal)}>🏆 決勝戦のみ</button>
             </div>
           </div>
         </div>
@@ -1360,6 +1400,7 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
         <div style={{display:"flex",gap:5}}>
           <button onClick={()=>setF({lucky:!flt.lucky})} style={chip(flt.lucky)}>🍀 運あり</button>
           <button onClick={()=>setF({unlucky:!flt.unlucky})} style={chip(flt.unlucky)}>💀 不運あり</button>
+<button onClick={()=>setF({onlyFinal:!flt.onlyFinal})} style={chip(flt.onlyFinal)}>🏆 決勝戦のみ</button>
         </div>
       </div>
     </div>
@@ -1415,7 +1456,7 @@ export default function App() {
   const [deleteConfirmType, setDeleteConfirmType] = useState(null);
 
   const setF = patch => { setFlt(f=>({...f,...patch})); setDisplayCount(20); };
-  const resetFilters = () => setFlt({ decks:[], opponents:[], opponentPersons:[], matchTypes:[], turns:[], results:[], lucky:false, unlucky:false, periodPreset:"all", dateFrom:"", dateTo:"" });
+  const resetFilters = () => setFlt({ decks:[], opponents:[], opponentPersons:[], matchTypes:[], turns:[], results:[], lucky:false, unlucky:false, onlyFinal:false, periodPreset:"all", dateFrom:"", dateTo:"" });
 
   useEffect(()=>{ save(st); }, [st]);
 
@@ -1444,18 +1485,19 @@ export default function App() {
   const matchTypes = st.matchTypes || [...DEFAULT_MATCH_TYPES];
 
   const makeNew = () => {
-    const base = { turn:"", result:"", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", opponentPerson:"", date:new Date().toISOString().slice(0,10), deckName:"" };
+    const base = { isFinal:false, turn:"", result:"", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", opponentPerson:"", date:new Date().toISOString().slice(0,10), deckName:"" };
     return { ...base, deckId:carryOver?(st.prefs.lastDeckId||st.decks[0]?.id||""):(st.decks[0]?.id||""), opponent:carryOver?(st.prefs.lastOpponent||""):"", matchType:carryOver?(st.prefs.lastMatchType||""):"" };
   };
-  const makeNewBattle = (lastForm) => ({ deckId:lastForm.deckId, opponent:lastForm.opponent, matchType:lastForm.matchType, opponentPerson:lastForm.opponentPerson, turn:"", result:"win", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", date:new Date().toISOString().slice(0,10) });
+  const makeNewBattle = (lastForm) => ({ deckId:lastForm.deckId, opponent:lastForm.opponent, matchType:lastForm.matchType, isFinal:lastForm.isFinal||false, opponentPerson:lastForm.opponentPerson, turn:"", result:"win", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", date:new Date().toISOString().slice(0,10) });
 
-  const openAdd = (continueFrom=null, sc=0) => { setDeleteTarget(null); const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,deckName:continueFrom.deckName||"",opponent:continueFrom.opponent,matchType:continueFrom.matchType,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
+  const openAdd = (continueFrom=null, sc=0) => { setDeleteTarget(null); const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,deckName:continueFrom.deckName||"",opponent:continueFrom.opponent,matchType:continueFrom.matchType,isFinal:continueFrom.isFinal||false,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
   const openEdit = match => { setDeleteTarget(null);
     const deck = st.decks.find(d => d.id === match.deckId);
     setScreen({ mode:"edit", form:{
       deckId: match.deckId,
       opponent: match.opponent,
       matchType: match.matchType || "",
+      isFinal: match.isFinal || false,
       turn: match.turn || "",
       result: match.result,
       endTurn: match.endTurn ?? null,
@@ -1674,12 +1716,13 @@ export default function App() {
       if(flt.results.length>0&&!flt.results.includes(m.result||"")) return false;
       if(flt.lucky&&!m.lucky) return false;
       if(flt.unlucky&&!m.unlucky) return false;
+      if(flt.onlyFinal&&!m.isFinal) return false;
       if(excludeSolo&&(m.matchType||"")==="一人回し") return false;
       return true;
     });
   };
 
-  const activeFilters = flt.decks.length+flt.opponents.length+(flt.opponentPersons||[]).length+flt.matchTypes.length+(flt.periodPreset!=="all"?1:0)+(flt.dateFrom||flt.dateTo?1:0);
+  const activeFilters = flt.decks.length+flt.opponents.length+(flt.opponentPersons||[]).length+flt.matchTypes.length+(flt.periodPreset!=="all"?1:0)+(flt.dateFrom||flt.dateTo?1:0)+(flt.onlyFinal?1:0);
   const filtered = applyFilters(st.matches);
   const sorted = [...filtered].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const wins=filtered.filter(m=>m.result==="win").length, loses=filtered.filter(m=>m.result==="lose").length, draws=filtered.filter(m=>m.result==="draw").length, total=filtered.length;
@@ -1764,21 +1807,14 @@ export default function App() {
                   const deck=getDeck(m.deckId); const deckMissing=m.deckId&&!deck;
                   const hex=deck?firstHex(deck.colors):null;
                   return (
-                    <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={(()=>{const rc=m.result==="win"?C.win:m.result==="lose"?C.lose:C.draw;const sel=bulkMode&&bulkSelected.includes(m.id);return {background:`linear-gradient(100deg, ${rc}2e 0%, ${rc}12 45%, ${C.card} 85%), ${C.card}`,border:`1.5px solid ${sel?C.accent:rc+"66"}`,borderLeft:`5px solid ${sel?C.accent:rc}`,borderRadius:12,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",isolation:"isolate"};})()}>
+                    <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={(()=>{const rc=m.result==="win"?C.win:m.result==="lose"?C.lose:C.draw;const sel=bulkMode&&bulkSelected.includes(m.id);const tint=st.cardColorOn!==false;if(!tint)return {background:C.card,border:`1.5px solid ${sel?C.accent:C.border}`,borderRadius:12,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",isolation:"isolate"};return {background:`linear-gradient(100deg, ${rc}2e 0%, ${rc}12 45%, ${C.card} 85%), ${C.card}`,border:`1.5px solid ${sel?C.accent:rc+"66"}`,borderLeft:`5px solid ${sel?C.accent:rc}`,borderRadius:12,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",isolation:"isolate"};})()}>
                       {/* 背景の勝敗マーク */}
-                      <svg aria-hidden="true" width="84" height="84" viewBox="0 0 80 80" style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",opacity:0.4,pointerEvents:"none",userSelect:"none",zIndex:-1}}>
-                        {m.result==="win"?(
-                          <circle cx="40" cy="40" r="30" fill="none" stroke={C.win} strokeWidth="9"/>
-                        ):m.result==="lose"?(
-                          <g stroke={C.lose} strokeWidth="9" strokeLinecap="round"><line x1="14" y1="14" x2="66" y2="66"/><line x1="66" y1="14" x2="14" y2="66"/></g>
-                        ):(
-                          <polygon points="40,10 70,64 10,64" fill="none" stroke={C.draw} strokeWidth="9" strokeLinejoin="round"/>
-                        )}
-                      </svg>
+                      <ResultMark result={m.result} mode={st.markOn===false?"off":(st.markStyle||"circle")}/>
                       {/* 1行目：勝敗・先攻後攻 / vs 相手 / 編集orチェック */}
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                         <WinBadge result={m.result}/>
                         <TurnBadge turn={m.turn}/>
+                        {m.isFinal&&<span style={{background:C.first+"22",color:C.first,border:`1px solid ${C.first}66`,borderRadius:6,padding:"2px 8px",fontWeight:800,fontSize:11,flexShrink:0}}>🏆決勝</span>}
                         <span style={{fontWeight:800,fontSize:15,flex:1,color:C.text}}>vs {m.opponent}</span>
                         {bulkMode?(
                           <div style={{width:22,height:22,borderRadius:4,border:`2px solid ${bulkSelected.includes(m.id)?C.accent:C.muted}`,background:bulkSelected.includes(m.id)?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -2063,6 +2099,32 @@ export default function App() {
                 {Object.entries(THEMES).map(([id,theme])=>{
                   const sel=st.theme===id;
                   return <button key={id} onClick={()=>setSt(s=>({...s,theme:id}))} style={{padding:"8px 14px",borderRadius:20,border:`2px solid ${sel?theme.accent:C.border}`,background:sel?theme.accent+"22":"transparent",color:sel?theme.accent:C.muted,fontWeight:sel?700:400,cursor:"pointer",fontSize:13}}>{theme.label}</button>;
+                })}
+              </div>
+            </div>
+            {/* 勝敗の表示 */}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:12}}>
+              <div style={{fontWeight:800,fontSize:14,marginBottom:4}}>対戦記録カードの勝敗表示</div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>カードの色付けと背景マークを、それぞれオン/オフできます</div>
+              {[["cardColorOn","カードの色付け","勝敗に応じてカードの背景と枠に色をつける"],["markOn","背景マーク","カードの背景に大きなマークを表示する"]].map(([key,label,desc])=>{
+                const on=st[key]!==false;
+                return (
+                  <div key={key} onClick={()=>setSt(s=>({...s,[key]:s[key]===false}))} role="switch" aria-checked={on} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:`1px solid ${C.border}`,cursor:"pointer",userSelect:"none"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:700,color:on?C.text:C.muted}}>{label}</div>
+                      <div style={{fontSize:11,color:C.muted,marginTop:2}}>{desc}</div>
+                    </div>
+                    <div style={{width:48,height:28,borderRadius:14,background:on?C.accent:C.surface,border:`1.5px solid ${on?C.accent:C.border}`,position:"relative",transition:"background 0.15s",flexShrink:0}}>
+                      <div style={{position:"absolute",top:2,left:on?22:2,width:22,height:22,borderRadius:"50%",background:on?"#000":C.muted,transition:"left 0.15s"}}/>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{fontSize:12,color:st.markOn===false?C.border:C.muted,margin:"12px 0 8px"}}>マークの種類</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,opacity:st.markOn===false?0.4:1}}>
+                {MARK_STYLES.map(([id,label])=>{
+                  const sel=(st.markStyle||"circle")===id;
+                  return <button key={id} onClick={()=>setSt(s=>({...s,markStyle:id}))} style={{padding:"8px 14px",borderRadius:20,border:`2px solid ${sel?C.accent:C.border}`,background:sel?C.accent+"22":"transparent",color:sel?C.accent:C.muted,fontWeight:sel?700:400,cursor:"pointer",fontSize:13}}>{label}</button>;
                 })}
               </div>
             </div>
