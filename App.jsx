@@ -1764,7 +1764,17 @@ export default function App() {
                   const deck=getDeck(m.deckId); const deckMissing=m.deckId&&!deck;
                   const hex=deck?firstHex(deck.colors):null;
                   return (
-                    <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={{background:C.card,border:`1.5px solid ${bulkMode&&bulkSelected.includes(m.id)?C.accent:C.border}`,borderRadius:12,padding:14,cursor:"pointer"}}>
+                    <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={(()=>{const rc=m.result==="win"?C.win:m.result==="lose"?C.lose:C.draw;const sel=bulkMode&&bulkSelected.includes(m.id);return {background:`linear-gradient(100deg, ${rc}2e 0%, ${rc}12 45%, ${C.card} 85%), ${C.card}`,border:`1.5px solid ${sel?C.accent:rc+"66"}`,borderLeft:`5px solid ${sel?C.accent:rc}`,borderRadius:12,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",isolation:"isolate"};})()}>
+                      {/* 背景の勝敗マーク */}
+                      <svg aria-hidden="true" width="84" height="84" viewBox="0 0 80 80" style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",opacity:0.4,pointerEvents:"none",userSelect:"none",zIndex:-1}}>
+                        {m.result==="win"?(
+                          <circle cx="40" cy="40" r="30" fill="none" stroke={C.win} strokeWidth="9"/>
+                        ):m.result==="lose"?(
+                          <g stroke={C.lose} strokeWidth="9" strokeLinecap="round"><line x1="14" y1="14" x2="66" y2="66"/><line x1="66" y1="14" x2="14" y2="66"/></g>
+                        ):(
+                          <polygon points="40,10 70,64 10,64" fill="none" stroke={C.draw} strokeWidth="9" strokeLinejoin="round"/>
+                        )}
+                      </svg>
                       {/* 1行目：勝敗・先攻後攻 / vs 相手 / 編集orチェック */}
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                         <WinBadge result={m.result}/>
