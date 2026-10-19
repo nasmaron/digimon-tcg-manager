@@ -1764,7 +1764,11 @@ export default function App() {
                   const deck=getDeck(m.deckId); const deckMissing=m.deckId&&!deck;
                   const hex=deck?firstHex(deck.colors):null;
                   return (
-                    <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={{background:C.card,border:`1.5px solid ${bulkMode&&bulkSelected.includes(m.id)?C.accent:C.border}`,borderRadius:12,padding:14,cursor:"pointer"}}>
+                    <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={(()=>{const rc=m.result==="win"?C.win:m.result==="lose"?C.lose:C.draw;const sel=bulkMode&&bulkSelected.includes(m.id);return {background:`linear-gradient(100deg, ${rc}2e 0%, ${rc}12 45%, ${C.card} 85%), ${C.card}`,border:`1.5px solid ${sel?C.accent:rc+"66"}`,borderLeft:`5px solid ${sel?C.accent:rc}`,borderRadius:12,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",isolation:"isolate"};})()}>
+                      {/* 背景の勝敗マーク */}
+                      <span aria-hidden="true" style={{position:"absolute",right:m.result==="draw"?20:14,top:"50%",transform:"translateY(-50%)",fontSize:m.result==="draw"?72:80,lineHeight:1,opacity:0.32,pointerEvents:"none",userSelect:"none",zIndex:-1,fontWeight:900,color:m.result==="draw"?C.draw:undefined}}>
+                        {m.result==="win"?"⭕":m.result==="lose"?"❌":"△"}
+                      </span>
                       {/* 1行目：勝敗・先攻後攻 / vs 相手 / 編集orチェック */}
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                         <WinBadge result={m.result}/>
