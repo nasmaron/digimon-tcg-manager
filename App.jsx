@@ -1240,7 +1240,7 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
     ...decks.filter(d=>flt.decks.includes(d.id)).map(d=>({label:d.name,key:"deck_"+d.id})),
     ...(flt.decks.includes("__no_deck__")?[{label:"データなし",key:"no_deck"}]:[]),
     ...flt.opponents.map(n=>({label:"vs "+n,key:"opp_"+n})),
-    ...flt.matchTypes.map(t=>({label:t,key:"mt_"+t})),
+    ...flt.matchTypes.map(t=>({label:t==="__unset__"?"未設定":t,key:"mt_"+t})),
     ...flt.turns.map(t=>({label:t==="first"?"先攻":t==="second"?"後攻":"未設定",key:"turn_"+t})),
     ...flt.results.map(r=>({label:r==="win"?"勝":r==="lose"?"敗":"分",key:"result_"+r})),
     ...(flt.onlyFinal?[{label:"決勝戦のみ",key:"onlyFinal"}]:[]),
@@ -1319,7 +1319,7 @@ function FilterBar({ decks, allOpponentNames, opponents, matchTypes, flt, setF, 
           <div>
             <div style={{fontSize:11,color:C.muted,marginBottom:6}}>対戦種類（複数選択可）</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-              {matchTypes.map(t=><button key={t} onClick={()=>toggleArr("matchTypes",t)} style={chip(flt.matchTypes.includes(t))}>{t}</button>)}
+              {matchTypes.map(t=><button key={t} onClick={()=>toggleArr("matchTypes",t)} style={chip(flt.matchTypes.includes(t))}>{t}</button>)}<button key="__unset__" onClick={()=>toggleArr("matchTypes","__unset__")} style={chip(flt.matchTypes.includes("__unset__"))}>未設定</button>
             </div>
           </div>
           <div>
@@ -1373,9 +1373,9 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
       <div>
         <div style={{fontSize:11,color:C.muted,marginBottom:6}}>期間（個別指定）</div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <input type="date" value={flt.dateFrom} onChange={e=>setF({dateFrom:e.target.value,periodPreset:"all"})} style={{...inputStyle,flex:1,padding:"7px 10px",fontSize:16}}/>
+          <input type="date" value={flt.dateFrom} onChange={e=>setF({dateFrom:e.target.value,periodPreset:"all"})} style={{...inputStyle,flex:1,minWidth:0,width:"auto",padding:"7px 10px",fontSize:16}}/>
           <span style={{color:C.muted,fontSize:12,flexShrink:0}}>〜</span>
-          <input type="date" value={flt.dateTo} onChange={e=>setF({dateTo:e.target.value,periodPreset:"all"})} style={{...inputStyle,flex:1,padding:"7px 10px",fontSize:16}}/>
+          <input type="date" value={flt.dateTo} onChange={e=>setF({dateTo:e.target.value,periodPreset:"all"})} style={{...inputStyle,flex:1,minWidth:0,width:"auto",padding:"7px 10px",fontSize:16}}/>
           {(flt.dateFrom||flt.dateTo)&&<button onClick={()=>setF({dateFrom:"",dateTo:""})} style={{color:C.muted,background:"transparent",border:"none",cursor:"pointer",fontSize:16,flexShrink:0}}>✕</button>}
         </div>
       </div>
@@ -1406,7 +1406,7 @@ function FilterBarPanel({ decks, allOpponentNames, opponents, matchTypes, flt, s
       <div>
         <div style={{fontSize:11,color:C.muted,marginBottom:6}}>対戦種類</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-          {matchTypes.map(t=><button key={t} onClick={()=>toggleArr("matchTypes",t)} style={chip(flt.matchTypes.includes(t))}>{t}</button>)}
+          {matchTypes.map(t=><button key={t} onClick={()=>toggleArr("matchTypes",t)} style={chip(flt.matchTypes.includes(t))}>{t}</button>)}<button key="__unset__" onClick={()=>toggleArr("matchTypes","__unset__")} style={chip(flt.matchTypes.includes("__unset__"))}>未設定</button>
         </div>
       </div>
       <div>
@@ -1778,7 +1778,7 @@ export default function App() {
     return matches.filter(m=>{
       if(flt.decks.length>0){ const hasNoDeck=flt.decks.includes("__no_deck__"); const deckIds=flt.decks.filter(x=>x!=="__no_deck__"); const deckExists=st.decks.some(d=>d.id===m.deckId); if(hasNoDeck&&!deckExists){ /* OK */ } else if(deckIds.length>0&&deckIds.includes(m.deckId)){ /* OK */ } else if(!hasNoDeck||deckExists){ return false; } }
       if(flt.opponents.length>0&&!flt.opponents.includes(m.opponent)) return false;
-      if(flt.matchTypes.length>0&&!flt.matchTypes.includes(m.matchType||"")) return false;
+      if(flt.matchTypes.length>0){const mt=m.matchType||"";const unset=!mt||!matchTypes.includes(mt);if(!(flt.matchTypes.includes(mt)||(unset&&flt.matchTypes.includes("__unset__")))) return false;}
       if(flt.periodPreset!=="all"){
         const d=new Date(m.date);
         if(flt.periodPreset==="today"&&d.toDateString()!==now.toDateString()) return false;
@@ -1854,7 +1854,7 @@ export default function App() {
 
             {/* ツールバー：ボタン行とパネルを分離 */}
             <>
-              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8,flexWrap:"nowrap",...(bulkMode?{position:"sticky",top:0,zIndex:40,background:C.bg,padding:"8px 0",marginTop:-8,boxShadow:"0 6px 8px -6px #000c"}:{})}}>
+              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8,flexWrap:"nowrap",position:"sticky",top:0,zIndex:40,background:C.bg,padding:"8px 0",marginTop:-8,boxShadow:"0 6px 8px -6px #000c"}}>
                 <FilterBarTop activeFilters={activeFilters} open={filterBarOpen} setOpen={setFilterBarOpen} onReset={resetFilters} compact={bulkMode}/>
                 {bulkMode?(
                   <>
@@ -1869,7 +1869,22 @@ export default function App() {
                   </>
                 )}
               </div>
-              {filterBarOpen&&<div style={{marginBottom:8}}><FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle}/></div>}
+              {filterBarOpen&&(
+                <div onClick={()=>setFilterBarOpen(false)} style={{position:"fixed",inset:0,zIndex:100,background:"#000a",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+                  <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:460,maxHeight:"85vh",display:"flex",flexDirection:"column",background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,overflow:"hidden",boxShadow:"0 10px 40px #000a"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+                      <div style={{fontSize:15,fontWeight:700,color:C.text}}>絞り込み{activeFilters>0?`（${activeFilters}）`:""}</div>
+                      <div style={{display:"flex",gap:8}}>
+                        {activeFilters>0&&<button onClick={resetFilters} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,fontSize:13,cursor:"pointer"}}>リセット</button>}
+                        <button onClick={()=>setFilterBarOpen(false)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:C.accent,color:"#000",fontSize:13,fontWeight:700,cursor:"pointer"}}>閉じる</button>
+                      </div>
+                    </div>
+                    <div style={{overflowY:"auto",overflowX:"hidden",padding:12,minWidth:0}}>
+                      <FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle}/>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
 
             {/* 記録リスト */}
@@ -1921,8 +1936,8 @@ export default function App() {
                   );
                 })}
                 {sorted.length>displayCount&&(
-                  <button onClick={()=>setDisplayCount(n=>n+20)} style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13,marginTop:4}}>
-                    さらに読み込む（残り{sorted.length-displayCount}件）
+                  <button onClick={()=>setDisplayCount(Infinity)} style={{width:"100%",padding:"12px 0",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:13,marginTop:4}}>
+                    全て表示（残り{sorted.length-displayCount}件）
                   </button>
                 )}
               </div>
