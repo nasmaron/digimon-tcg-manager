@@ -224,29 +224,44 @@ function WinBadge({result}) {
   return <span style={{background:col+"22",color:col,border:`1px solid ${col}55`,borderRadius:6,padding:"2px 10px",fontWeight:800,fontSize:12,fontFamily:"monospace"}}>{l}</span>;
 }
 const MARK_STYLES = [["circle","⭕ ❌"],["kanji","勝 敗"],["stamp","WIN LOSE"]];
-function ResultMark({ result, mode }) {
+function ResultMark({ result, mode, isFinal }) {
   if (!mode || mode==="off") return null;
   const col = result==="win"?C.win:result==="lose"?C.lose:C.draw;
   const base = { position:"absolute", top:"50%", pointerEvents:"none", userSelect:"none", zIndex:-1 };
+  const trophy = (isFinal && result==="win") ? (
+    <svg aria-hidden="true" width="96" height="96" viewBox="0 0 100 100" style={{...base,left:"50%",transform:"translate(-50%,-50%)",opacity:0.5}}>
+      <g fill="#ffd700" stroke="#ffd700" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M27 12 H73 V36 C73 54 62 64 50 64 C38 64 27 54 27 36 Z"/>
+        <path d="M44 64 H56 L58 76 H42 Z"/>
+        <rect x="30" y="76" width="40" height="12" rx="2"/>
+      </g>
+      <g fill="none" stroke="#ffd700" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M27 20 H14 C14 36 21 42 31 44"/>
+        <path d="M73 20 H86 C86 36 79 42 69 44"/>
+      </g>
+    </svg>
+  ) : null;
+  let mark;
   if (mode==="kanji") {
     const t = result==="win"?"勝":result==="lose"?"敗":"分";
-    return <span aria-hidden="true" style={{...base,right:16,transform:"translateY(-50%)",fontSize:72,lineHeight:1,fontWeight:900,color:col,opacity:0.4}}>{t}</span>;
-  }
-  if (mode==="stamp") {
+    mark = <span aria-hidden="true" style={{...base,right:16,transform:"translateY(-50%)",fontSize:72,lineHeight:1,fontWeight:900,color:col,opacity:0.4}}>{t}</span>;
+  } else if (mode==="stamp") {
     const t = result==="win"?"WIN":result==="lose"?"LOSE":"DRAW";
-    return <span aria-hidden="true" style={{...base,right:14,transform:"translateY(-50%) rotate(-12deg)",fontSize:30,lineHeight:1,fontWeight:900,fontFamily:"'Arial Black',Impact,sans-serif",letterSpacing:2,color:col,opacity:0.45,border:`4px solid ${col}`,borderRadius:8,padding:"6px 10px"}}>{t}</span>;
+    mark = <span aria-hidden="true" style={{...base,right:14,transform:"translateY(-50%) rotate(-12deg)",fontSize:30,lineHeight:1,fontWeight:900,fontFamily:"'Arial Black',Impact,sans-serif",letterSpacing:2,color:col,opacity:0.45,border:`4px solid ${col}`,borderRadius:8,padding:"6px 10px"}}>{t}</span>;
+  } else {
+    mark = (
+      <svg aria-hidden="true" width="84" height="84" viewBox="0 0 80 80" style={{...base,right:12,transform:"translateY(-50%)",opacity:0.4}}>
+        {result==="win"?(
+          <circle cx="40" cy="40" r="30" fill="none" stroke={C.win} strokeWidth="9"/>
+        ):result==="lose"?(
+          <g stroke={C.lose} strokeWidth="9" strokeLinecap="round"><line x1="14" y1="14" x2="66" y2="66"/><line x1="66" y1="14" x2="14" y2="66"/></g>
+        ):(
+          <polygon points="40,10 70,64 10,64" fill="none" stroke={C.draw} strokeWidth="9" strokeLinejoin="round"/>
+        )}
+      </svg>
+    );
   }
-  return (
-    <svg aria-hidden="true" width="84" height="84" viewBox="0 0 80 80" style={{...base,right:12,transform:"translateY(-50%)",opacity:0.4}}>
-      {result==="win"?(
-        <circle cx="40" cy="40" r="30" fill="none" stroke={C.win} strokeWidth="9"/>
-      ):result==="lose"?(
-        <g stroke={C.lose} strokeWidth="9" strokeLinecap="round"><line x1="14" y1="14" x2="66" y2="66"/><line x1="66" y1="14" x2="14" y2="66"/></g>
-      ):(
-        <polygon points="40,10 70,64 10,64" fill="none" stroke={C.draw} strokeWidth="9" strokeLinejoin="round"/>
-      )}
-    </svg>
-  );
+  return <>{trophy}{mark}</>;
 }
 
 function TurnBadge({turn}) {
@@ -405,11 +420,14 @@ function Row({ label, children, fieldKey, formFields, onToggleField, required=fa
   );
 }
 
-function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents, matchTypes, onAddMatchType, onDeleteMatchType, isEdit, onDelete, formFields={}, carryOver, onToggleCarryOver, onToggleField, onContinue, seriesCount=0, scrollRef }) {
+function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents, matchTypes, onAddMatchType, onDeleteMatchType, isEdit, onDelete, formFields={}, carryOver, onToggleCarryOver, onToggleField, onContinue, seriesCount=0, scrollRef, bulkEdit=false, bulkCount=0 }) {
   const [form, setForm] = useState(initial);
-  const set = patch => setForm(f=>({...f,...patch}));
+  const [touched, setTouched] = useState({});
+  const set = patch => { setForm(f=>({...f,...patch})); if (bulkEdit) setTouched(t=>({...t,...Object.fromEntries(Object.keys(patch).map(k=>[k,true]))})); };
+  const BULK_LABELS = { date:"日付", matchType:"対戦種類", isFinal:"決勝戦", deckId:"使用デッキ", deckName:"使用デッキ", opponent:"相手デッキ", opponentPerson:"対戦相手", turn:"先攻後攻", result:"勝敗", endTurn:"終了ターン", lucky:"運", unlucky:"運", notes:"メモ", deckUrl:"デッキURL" };
+  const bulkChanged = Array.from(new Set(Object.keys(touched).map(k=>BULK_LABELS[k]).filter(Boolean)));
   const deckOK = !!(form.deckId || (form.deckName && form.deckName.trim()));
-  const canSave = deckOK && form.opponent.trim() && form.result;
+  const canSave = bulkEdit ? bulkChanged.length>0 : (deckOK && form.opponent.trim() && form.result);
   const inputStyle = { background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, padding:"8px 12px", fontSize:16, outline:"none", width:"100%", boxSizing:"border-box" };
 
   return (
@@ -417,16 +435,22 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
       <div style={{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:6}}>
         <button onClick={onCancel} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,cursor:"pointer",fontSize:14,fontWeight:700,padding:"8px 12px",borderRadius:8,flexShrink:0}}>← 戻る</button>
         <div style={{textAlign:"center",flex:1,minWidth:0}}>
-          <div style={{fontWeight:800,fontSize:15}}>{isEdit?"対戦を編集":"対戦を記録"}</div>
-          {!isEdit&&<div style={{fontSize:11,color:"#ff9800",fontWeight:700}}>連続記録 {seriesCount+1}回目</div>}
+          <div style={{fontWeight:800,fontSize:15}}>{bulkEdit?`一括編集（${bulkCount}件）`:isEdit?"対戦を編集":"対戦を記録"}</div>
+          {!isEdit&&!bulkEdit&&<div style={{fontSize:11,color:"#ff9800",fontWeight:700}}>連続記録 {seriesCount+1}回目</div>}
         </div>
         <div style={{display:"flex",gap:5,flexShrink:0}}>
-          <button onClick={()=>canSave&&onSave(form)} style={{background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"7px 10px",fontWeight:800,fontSize:12,cursor:canSave?"pointer":"default"}}>記録</button>
-          {!isEdit&&onContinue&&<button onClick={()=>canSave&&onContinue(form)} style={{background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"7px 8px",fontWeight:800,fontSize:11,cursor:canSave?"pointer":"default",whiteSpace:"nowrap"}}>連続記録</button>}
+          <button onClick={()=>canSave&&onSave(form,touched)} style={{background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"7px 10px",fontWeight:800,fontSize:12,cursor:canSave?"pointer":"default"}}>{bulkEdit?"反映":"記録"}</button>
+          {!isEdit&&!bulkEdit&&onContinue&&<button onClick={()=>canSave&&onContinue(form)} style={{background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"7px 8px",fontWeight:800,fontSize:11,cursor:canSave?"pointer":"default",whiteSpace:"nowrap"}}>連続記録</button>}
         </div>
       </div>
       <div ref={scrollRef} style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:"12px 16px",maxWidth:600,margin:"0 auto",width:"100%",boxSizing:"border-box",minWidth:0}}>
-        {!isEdit&&(
+        {bulkEdit&&(
+          <div style={{padding:"10px 14px",borderRadius:10,marginBottom:8,background:C.surface,border:`1px solid ${bulkChanged.length>0?C.accent:C.border}`,fontSize:12,lineHeight:1.7}}>
+            <div style={{color:C.muted}}>選択した{bulkCount}件に、<b style={{color:C.text}}>変更した項目だけ</b>を反映します。触れていない項目は今のまま残ります。</div>
+            <div style={{marginTop:4,color:bulkChanged.length>0?C.accent:C.muted,fontWeight:700}}>{bulkChanged.length>0?`反映する項目：${bulkChanged.join("・")}`:"反映する項目：まだありません"}</div>
+          </div>
+        )}
+        {!isEdit&&!bulkEdit&&(
           <div>
             <div onClick={()=>{ const next=!carryOver; onToggleCarryOver(next); if(next){setForm(initial);}else{setForm(f=>({...f,deckId:"",opponent:"",matchType:"",opponentPerson:""}));} }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:10,marginBottom:8,cursor:"pointer",background:C.surface,border:`1px solid ${carryOver?C.accent:C.border}`}}>
                 <div style={{width:20,height:20,borderRadius:4,border:`2px solid ${carryOver?C.accent:C.muted}`,background:carryOver?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -451,10 +475,10 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
               <span style={{fontSize:13,fontWeight:form.isFinal?800:400,color:form.isFinal?C.first:C.muted}}>{form.isFinal?"🏆 決勝戦":"決勝戦ではない"}</span>
             </div>
           </Row>
-          <Row label="使用デッキ" fieldKey="deck" formFields={formFields} onToggleField={onToggleField} required={true}>
+          <Row label="使用デッキ" fieldKey="deck" formFields={formFields} onToggleField={onToggleField} required={!bulkEdit}>
             <DeckPicker value={form.deckId?((decks.find(d=>d.id===form.deckId)?.name)||form.deckName||""):form.deckName||""} onChange={v=>set({deckId:decks.find(d=>d.name===v)?.id||"",deckName:v})} names={decks} placeholder="デッキ名を入力" useId={false} />
           </Row>
-          <Row label="相手デッキ" fieldKey="opponent" formFields={formFields} onToggleField={onToggleField} required={true}>
+          <Row label="相手デッキ" fieldKey="opponent" formFields={formFields} onToggleField={onToggleField} required={!bulkEdit}>
             <DeckPicker value={form.opponent} onChange={v=>set({opponent:v})} names={Array.from(new Set([...decks.map(d=>d.name),...opponentNames])).sort().map(n=>({id:n,name:n}))} placeholder="相手のデッキ名" useId={false} />
           </Row>
           <Row label="対戦相手" fieldKey="opponentPerson" formFields={formFields} onToggleField={onToggleField}>
@@ -463,7 +487,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
           <Row label="先攻後攻" fieldKey="turn" formFields={formFields} onToggleField={onToggleField}>
             <ToggleRow options={[["first","⚡ 先攻",C.first],["second","🌙 後攻",C.second]]} value={form.turn} onChange={v=>set({turn:v})} />
           </Row>
-          <Row label="勝敗" fieldKey="result" formFields={formFields} onToggleField={onToggleField} required={true}>
+          <Row label="勝敗" fieldKey="result" formFields={formFields} onToggleField={onToggleField} required={!bulkEdit}>
             <ToggleRow options={[["win","🏆 勝",C.win],["lose","💀 敗",C.lose],["draw","🤝 分",C.draw]]} value={form.result} onChange={v=>set({result:v})} noDeselect={true} />
           </Row>
           <Row label="終了ターン" fieldKey="endTurn" formFields={formFields} onToggleField={onToggleField}>
@@ -489,6 +513,7 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
           <Row label="デッキURL" fieldKey="deckUrl" formFields={formFields} onToggleField={onToggleField}>
             <input placeholder="https://..." value={form.deckUrl||""} onChange={e=>set({deckUrl:e.target.value})} style={inputStyle}/>
           </Row>
+          {!bulkEdit&&(<>
           <Row label="デッキ画像" fieldKey="deckImage" formFields={formFields} onToggleField={onToggleField}>
             <label style={{display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,border:`1px dashed ${form.deckImage?C.accent:C.border}`,cursor:"pointer",overflow:"hidden",minHeight:60,background:C.surface,position:"relative"}}>
               {form.deckImage
@@ -522,14 +547,15 @@ function MatchEntry({ initial, onSave, onCancel, decks, opponentNames, opponents
             </label>
             {form.image&&<button onClick={()=>set({image:""})} style={{marginTop:6,background:"transparent",border:"none",color:C.muted,cursor:"pointer",fontSize:12}}>✕ 画像を削除</button>}
           </Row>
+          </>)}
         </div>
 
       </div>
       {/* 下部ボタン */}
       <div style={{padding:"12px 16px",borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8,flexShrink:0}}>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>canSave&&onSave(form)} style={{flex:2,background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:15,cursor:canSave?"pointer":"default"}}>記録</button>
-          {!isEdit&&onContinue&&<button onClick={()=>{if(!canSave)return;onContinue(form);}} style={{flex:1,background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:14,cursor:canSave?"pointer":"default"}}>連続記録</button>}
+          <button onClick={()=>canSave&&onSave(form,touched)} style={{flex:2,background:canSave?`linear-gradient(135deg,${C.accent},${C.accentDim})`:"#1e2d4a",color:canSave?"#000":C.muted,border:"none",borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:15,cursor:canSave?"pointer":"default"}}>{bulkEdit?"反映":"記録"}</button>
+          {!isEdit&&!bulkEdit&&onContinue&&<button onClick={()=>{if(!canSave)return;onContinue(form);}} style={{flex:1,background:canSave?"#ff980022":"#1e2d4a",color:canSave?"#ff9800":C.muted,border:`1px solid ${canSave?"#ff9800":C.border}`,borderRadius:8,padding:"13px 0",fontWeight:800,fontSize:14,cursor:canSave?"pointer":"default"}}>連続記録</button>}
         </div>
         {isEdit&&<button onClick={onDelete} style={{width:"100%",padding:"12px 0",borderRadius:8,border:"1px solid #ff4444",background:"transparent",color:"#ff4444",fontWeight:700,fontSize:14,cursor:"pointer"}}>この記録を削除</button>}
       </div>
@@ -567,7 +593,7 @@ function MatchDetailModal({ match, deck, onClose, onEdit, formFields={}, deckIma
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <WinBadge result={match.result}/>
               <TurnBadge turn={match.turn}/>
-              {match.isFinal&&<span style={{color:C.first,background:C.first+"22",border:`1px solid ${C.first}66`,borderRadius:6,padding:"3px 10px",fontSize:12,fontWeight:800}}>🏆 決勝戦</span>}
+              {match.isFinal&&<span style={{color:C.first,background:C.first+(match.result==="win"?"33":"18"),border:`1px solid ${C.first}${match.result==="win"?"aa":"55"}`,borderRadius:6,padding:"3px 10px",fontSize:12,fontWeight:800}}>{match.result==="win"?"🏆 優勝":"決勝戦"}</span>}
               {show("lucky")&&match.lucky&&<span style={{color:"#22c55e",background:"#22c55e18",border:"1px solid #22c55e44",borderRadius:6,padding:"3px 10px",fontSize:12}}>🍀 運あり</span>}
               {show("lucky")&&match.unlucky&&<span style={{color:"#f87171",background:"#f8717118",border:"1px solid #f8717144",borderRadius:6,padding:"3px 10px",fontSize:12}}>💀 不運あり</span>}
             </div>
@@ -1184,14 +1210,14 @@ function findSimilarPairs(names) {
 }
 
 // ボタン部分のみ
-function FilterBarTop({ activeFilters, open, setOpen, onReset }) {
+function FilterBarTop({ activeFilters, open, setOpen, onReset, compact=false }) {
   return (
     <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
-      <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,padding:"0 12px",height:36,borderRadius:8,border:`1px solid ${activeFilters>0?C.accent:C.border}`,background:activeFilters>0?C.accent+"18":"transparent",color:activeFilters>0?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:activeFilters>0?700:400,whiteSpace:"nowrap"}}>
-        🔍 絞り込み{activeFilters>0&&<span style={{background:C.accent,color:"#000",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:800,marginLeft:2}}>{activeFilters}</span>}
+      <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:compact?4:6,padding:compact?"0 8px":"0 12px",height:36,borderRadius:8,border:`1px solid ${activeFilters>0?C.accent:C.border}`,background:activeFilters>0?C.accent+"18":"transparent",color:activeFilters>0?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:activeFilters>0?700:400,whiteSpace:"nowrap"}}>
+        🔍{compact?"":" 絞り込み"}{activeFilters>0&&<span style={{background:C.accent,color:"#000",borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:800,marginLeft:2}}>{activeFilters}</span>}
         <span style={{fontSize:10,marginLeft:2}}>{open?"▲":"▼"}</span>
       </button>
-      {activeFilters>0&&<button onClick={onReset} style={{padding:"0 12px",height:36,borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>リセット</button>}
+      {activeFilters>0&&!compact&&<button onClick={onReset} style={{padding:"0 12px",height:36,borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap"}}>リセット</button>}
     </div>
   );
 }
@@ -1451,6 +1477,7 @@ export default function App() {
   const [showActiveOnly, setShowActiveOnly] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.showActiveOnly||false;}catch{return false;}});
   const [excludeSolo, setExcludeSolo] = useState(()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.excludeSolo||false;}catch{return false;}});
   const [showAllOpponentStats, setShowAllOpponentStats] = useState(false);
+  const listScrollY = useRef(null);
   const [newOppName, setNewOppName] = useState("");
   const [statVis, setStatVis] = useState(()=>{ try{const p=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").uiPrefs?.statVis||{};return{overall:p.overall!==false,winTrend:p.winTrend!==false,turns:p.turns!==false,deckBar:p.deckBar!==false,oppBar:p.oppBar!==false,deckPie:p.deckPie!==false,oppPie:p.oppPie!==false};}catch{return{overall:true,winTrend:true,turns:true,deckBar:true,oppBar:true,deckPie:true,oppPie:true};} });
   const [deleteConfirmType, setDeleteConfirmType] = useState(null);
@@ -1467,11 +1494,15 @@ export default function App() {
     }).catch(()=>{}).finally(()=>setIdbLoading(false));
   },[]);
   useEffect(()=>{
-    try{
-      const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
-      d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,excludeSolo,flt};
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
-    }catch{}
+    // 表示設定の保存は全データの読み書きを伴い重いので、画面の描画を終えてから行う
+    const id=setTimeout(()=>{
+      try{
+        const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+        d.uiPrefs={tab,deckView,showDeckStats,showNotes,statVis,deckSort,oppSort,showActiveOnly,excludeSolo,flt};
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
+      }catch{}
+    },500);
+    return ()=>clearTimeout(id);
   },[tab,deckView,showDeckStats,showNotes,statVis,excludeSolo]);
   useEffect(()=>{
     if(showAddDeck){ document.body.style.overflow="hidden"; }
@@ -1490,8 +1521,8 @@ export default function App() {
   };
   const makeNewBattle = (lastForm) => ({ deckId:lastForm.deckId, opponent:lastForm.opponent, matchType:lastForm.matchType, isFinal:lastForm.isFinal||false, opponentPerson:lastForm.opponentPerson, turn:"", result:"win", endTurn:null, lucky:false, unlucky:false, notes:"", image:"", deckImage:"", deckUrl:"", date:new Date().toISOString().slice(0,10) });
 
-  const openAdd = (continueFrom=null, sc=0) => { setDeleteTarget(null); const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,deckName:continueFrom.deckName||"",opponent:continueFrom.opponent,matchType:continueFrom.matchType,isFinal:continueFrom.isFinal||false,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
-  const openEdit = match => { setDeleteTarget(null);
+  const openAdd = (continueFrom=null, sc=0) => { if(!screen) listScrollY.current=window.scrollY; setDeleteTarget(null); const base=makeNew(); const form=continueFrom?{...base,deckId:continueFrom.deckId,deckName:continueFrom.deckName||"",opponent:continueFrom.opponent,matchType:continueFrom.matchType,isFinal:continueFrom.isFinal||false,opponentPerson:continueFrom.opponentPerson,date:continueFrom.date,turn:"",result:"",endTurn:null,lucky:false,unlucky:false,notes:"",image:""}:base; setScreen({mode:"add",form,seriesCount:sc}); };
+  const openEdit = match => { if(!screen) listScrollY.current=window.scrollY; setDeleteTarget(null);
     const deck = st.decks.find(d => d.id === match.deckId);
     setScreen({ mode:"edit", form:{
       deckId: match.deckId,
@@ -1634,12 +1665,58 @@ export default function App() {
 
   const doRestore = () => { const d=parseData(restoreText); if(d){setSt(d);setBackupMode(null);setRestoreText("");} };
 
+  const openBulkEdit = () => {
+    if (bulkSelected.length===0) return;
+    if(!screen) listScrollY.current=window.scrollY;
+    setScreen({ mode:"bulkEdit", ids:[...bulkSelected], form:{ date:"", matchType:"", isFinal:false, deckId:"", deckName:"", opponent:"", opponentPerson:"", turn:"", result:"", endTurn:null, lucky:false, unlucky:false, notes:"", deckUrl:"", image:"", deckImage:"" } });
+  };
+  const applyBulkEdit = (form, touched) => {
+    const ids = new Set(screen.ids||[]);
+    const t = touched||{};
+    setSt(s=>{
+      let decks = s.decks;
+      let deckId = null, deckImgId = null;
+      if (t.deckId||t.deckName) {
+        deckId = form.deckId;
+        const name = (form.deckName||"").trim();
+        if (!deckId && name) {
+          const ex = s.decks.find(d=>d.name===name);
+          if (ex) deckId = ex.id;
+          else { deckId = genId(); decks = [...s.decks,{id:deckId,name,colors:[],notes:"",url:"",maxImages:10,currentImageId:null,createdAt:new Date().toISOString()}]; }
+        }
+        deckImgId = decks.find(d=>d.id===deckId)?.currentImageId || null;
+      }
+      const simple = ["date","matchType","isFinal","opponentPerson","turn","endTurn","lucky","unlucky","notes","deckUrl"];
+      const matches = s.matches.map(m=>{
+        if (!ids.has(m.id)) return m;
+        const patch = {};
+        simple.forEach(k=>{ if (t[k]) patch[k]=form[k]; });
+        if (t.date && !form.date) delete patch.date;
+        if (t.result && form.result) patch.result = form.result;
+        if (t.opponent && (form.opponent||"").trim()) patch.opponent = form.opponent.trim();
+        if (deckId) { patch.deckId = deckId; patch.imageId = deckImgId; }
+        return {...m,...patch};
+      });
+      const opponentNames = (t.opponent && (form.opponent||"").trim()) ? Array.from(new Set([...(s.opponentNames||[]), form.opponent.trim()])) : s.opponentNames;
+      return {...s, decks, matches, opponentNames};
+    });
+    showToast(`${ids.size}件を更新しました`);
+    setScreen(null); setBulkMode(false); setBulkSelected([]);
+  };
+
   const sortedDecksForEntry = [...st.decks].sort((a,b)=>{
     const now=Date.now(), score=id=>st.matches.reduce((s,m)=>{if(m.deckId!==id)return s;const age=(now-new Date(m.createdAt).getTime())/(1000*60*60*24);return s+(age<=30?3:age<=90?1.5:1);},0);
     return score(b.id)-score(a.id);
   });
 
   const entryScrollRef = useRef(null);
+  useEffect(()=>{
+    if(!screen && listScrollY.current!=null){
+      const y=listScrollY.current; listScrollY.current=null;
+      window.scrollTo(0,y);
+      requestAnimationFrame(()=>window.scrollTo(0,y));
+    }
+  }, [screen]);
   useEffect(()=>{
     if(screen) {
       setTimeout(()=>{
@@ -1663,7 +1740,7 @@ export default function App() {
 
   if (screen) return (
     <div>
-      <MatchEntry initial={screen.form} onSave={saveMatch} onCancel={()=>{setScreen(null);setMatchDetail(null);}}
+      <MatchEntry initial={screen.form} onSave={(f,tc)=>screen.mode==="bulkEdit"?applyBulkEdit(f,tc):saveMatch(f)} bulkEdit={screen.mode==="bulkEdit"} bulkCount={(screen.ids||[]).length} onCancel={()=>{setScreen(null);setMatchDetail(null);}}
         decks={sortedDecksForEntry} opponentNames={allOpponentNames} opponents={st.opponents||[]}
         matchTypes={matchTypes} onAddMatchType={addMatchType} onDeleteMatchType={deleteMatchType}
         isEdit={screen.mode==="edit"}
@@ -1742,7 +1819,7 @@ export default function App() {
   });
 
   const toggleBulkSelect = id => setBulkSelected(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
-  const executeBulkDelete = () => { setSt(s=>({...s,matches:s.matches.filter(m=>!bulkSelected.includes(m.id))})); setBulkMode(false); setBulkSelected([]); };
+  const executeBulkDelete = () => { if(bulkSelected.length===0) return; if(!window.confirm(`選択した${bulkSelected.length}件の記録を削除しますか？\nこの操作は取り消せません。`)) return; setSt(s=>({...s,matches:s.matches.filter(m=>!bulkSelected.includes(m.id))})); setBulkMode(false); setBulkSelected([]); };
   const cancelBulkMode = () => { setBulkMode(false); setBulkSelected([]); };
 
   const inputStyle={background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,padding:"9px 12px",fontSize:16,outline:"none",width:"100%",boxSizing:"border-box"};
@@ -1776,23 +1853,24 @@ export default function App() {
             </div>
 
             {/* ツールバー：ボタン行とパネルを分離 */}
-            <div style={{marginBottom:8}}>
-              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:4}}>
-                <FilterBarTop activeFilters={activeFilters} open={filterBarOpen} setOpen={setFilterBarOpen} onReset={resetFilters}/>
+            <>
+              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8,flexWrap:"nowrap",...(bulkMode?{position:"sticky",top:0,zIndex:40,background:C.bg,padding:"8px 0",marginTop:-8,boxShadow:"0 6px 8px -6px #000c"}:{})}}>
+                <FilterBarTop activeFilters={activeFilters} open={filterBarOpen} setOpen={setFilterBarOpen} onReset={resetFilters} compact={bulkMode}/>
                 {bulkMode?(
                   <>
+                    <button onClick={openBulkEdit} disabled={bulkSelected.length===0} style={{height:36,padding:"0 7px",borderRadius:8,border:`1px solid ${bulkSelected.length>0?C.accent:C.border}`,background:bulkSelected.length>0?C.accent+"22":"transparent",color:bulkSelected.length>0?C.accent:C.muted,fontWeight:700,cursor:bulkSelected.length>0?"pointer":"default",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>一括編集({bulkSelected.length})</button>
+                    <button onClick={executeBulkDelete} disabled={bulkSelected.length===0} style={{height:36,padding:"0 7px",borderRadius:8,border:"none",background:bulkSelected.length>0?"#ff4444":"#333",color:bulkSelected.length>0?"#fff":"#666",fontWeight:700,cursor:bulkSelected.length>0?"pointer":"default",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>一括削除({bulkSelected.length})</button>
                     <button onClick={cancelBulkMode} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>キャンセル</button>
-                    <button onClick={executeBulkDelete} disabled={bulkSelected.length===0} style={{height:36,padding:"0 10px",borderRadius:8,border:"none",background:bulkSelected.length>0?"#ff4444":"#333",color:bulkSelected.length>0?"#fff":"#666",fontWeight:700,cursor:bulkSelected.length>0?"pointer":"default",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>削除({bulkSelected.length})</button>
                   </>
                 ):(
                   <>
                     <button onClick={()=>setShowNotes(n=>!n)} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${showNotes?C.accent:C.border}`,background:showNotes?C.accent+"22":"transparent",color:showNotes?C.accent:C.muted,cursor:"pointer",fontSize:12,fontWeight:showNotes?700:400,flexShrink:0}}>メモ</button>
-                    <button onClick={()=>{setBulkMode(true);setBulkSelected([]);}} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>一括削除</button>
+                    <button onClick={()=>{setBulkMode(true);setBulkSelected([]);}} style={{height:36,padding:"0 10px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,cursor:"pointer",fontSize:12,whiteSpace:"nowrap",flexShrink:0}}>一括選択</button>
                   </>
                 )}
               </div>
-              {filterBarOpen&&<FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle}/>}
-            </div>
+              {filterBarOpen&&<div style={{marginBottom:8}}><FilterBarPanel decks={st.decks} allOpponentNames={allOpponentNames} opponents={st.opponents||[]} matchTypes={matchTypes} flt={flt} setF={setF} inputStyle={inputStyle}/></div>}
+            </>
 
             {/* 記録リスト */}
             {sorted.length===0?(
@@ -1809,12 +1887,12 @@ export default function App() {
                   return (
                     <div key={m.id} onClick={()=>bulkMode?toggleBulkSelect(m.id):setMatchDetail(m)} style={(()=>{const rc=m.result==="win"?C.win:m.result==="lose"?C.lose:C.draw;const sel=bulkMode&&bulkSelected.includes(m.id);const tint=st.cardColorOn!==false;if(!tint)return {background:C.card,border:`1.5px solid ${sel?C.accent:C.border}`,borderRadius:12,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",isolation:"isolate"};return {background:`linear-gradient(100deg, ${rc}2e 0%, ${rc}12 45%, ${C.card} 85%), ${C.card}`,border:`1.5px solid ${sel?C.accent:rc+"66"}`,borderLeft:`5px solid ${sel?C.accent:rc}`,borderRadius:12,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",isolation:"isolate"};})()}>
                       {/* 背景の勝敗マーク */}
-                      <ResultMark result={m.result} mode={st.markOn===false?"off":(st.markStyle||"circle")}/>
+                      <ResultMark isFinal={m.isFinal} result={m.result} mode={st.markOn===false?"off":(st.markStyle||"circle")}/>
                       {/* 1行目：勝敗・先攻後攻 / vs 相手 / 編集orチェック */}
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                         <WinBadge result={m.result}/>
                         <TurnBadge turn={m.turn}/>
-                        {m.isFinal&&<span style={{background:C.first+"22",color:C.first,border:`1px solid ${C.first}66`,borderRadius:6,padding:"2px 8px",fontWeight:800,fontSize:11,flexShrink:0}}>🏆決勝</span>}
+                        {m.isFinal&&<span style={{background:C.first+(m.result==="win"?"33":"18"),color:C.first,border:`1px solid ${C.first}${m.result==="win"?"aa":"55"}`,borderRadius:6,padding:"2px 8px",fontWeight:800,fontSize:11,flexShrink:0,boxShadow:m.result==="win"?`0 0 8px ${C.first}66`:"none"}}>{m.result==="win"?"🏆 優勝":"決勝"}</span>}
                         <span style={{fontWeight:800,fontSize:15,flex:1,color:C.text}}>vs {m.opponent}</span>
                         {bulkMode?(
                           <div style={{width:22,height:22,borderRadius:4,border:`2px solid ${bulkSelected.includes(m.id)?C.accent:C.muted}`,background:bulkSelected.includes(m.id)?C.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -1831,13 +1909,14 @@ export default function App() {
                         {deck&&<span style={{display:"flex",alignItems:"center",gap:4,color:hex||C.text,fontWeight:700}}><DeckDot colors={deck.colors} size={10}/>{deck.name}</span>}
                     {deckMissing&&<span style={{display:"flex",alignItems:"center",gap:4,color:C.muted,fontSize:11}}>⚠️ データなし</span>}
                         {m.matchType&&<span style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:4,padding:"1px 6px",color:C.muted,fontSize:11}}>{m.matchType}</span>}
-                        <span style={{color:C.muted,fontSize:11,marginLeft:"auto"}}>{m.date}</span>
-                      </div>
+                        </div>
 
                       {/* メモ */}
                       {m.notes&&showNotes&&(
                         <div style={{fontSize:13,color:C.text,lineHeight:1.6,padding:"8px 10px",background:C.surface,borderRadius:8}}>{m.notes}</div>
                       )}
+                      {/* 日付（最下段・右寄せ） */}
+                      <div style={{textAlign:"right",marginTop:m.notes&&showNotes?6:8,fontSize:12,fontWeight:700,color:C.text,letterSpacing:0.3,textShadow:`0 0 4px ${C.bg}, 0 0 8px ${C.bg}`}}>{m.date}</div>
                     </div>
                   );
                 })}
